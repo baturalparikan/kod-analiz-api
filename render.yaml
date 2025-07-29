@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: kod-analiz-api
+    env: python
+    buildCommand: ""
+    startCommand: "python analyze.py"
+    plan: free
