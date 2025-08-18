@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route("/", methods=["GET"])
 def home():
@@ -13,25 +15,13 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
-    lang = data.get("lang", "tr")  # Türkçe varsayılan
 
-    # Basit bir hata tespit simülasyonu (ileride yapay zekâ koyacağız)
-    errors = []
-    if "def " in code and not code.strip().endswith(":"):
-        errors.append("Fonksiyon tanımı ':' ile bitmiyor.")
-
-    if "print(" not in code:
-        errors.append("Kodda 'print' fonksiyonu bulunamadı.")
-
-    if not errors:
-        result_tr = "Kodda hata bulunamadı ✅"
-        result_en = "No errors found ✅"
+    # Basit bir örnek kontrol
+    if "print(" in code:
+        analysis = "Kod geçerli görünüyor, print fonksiyonu içeriyor."
     else:
-        result_tr = "Hatalar:\n- " + "\n- ".join(errors)
-        result_en = "Errors:\n- " + "\n- ".join(errors)
+        analysis = "Kodda print fonksiyonu bulunamadı."
 
-    # Dil seçimine göre cevap
-    if lang == "en":
-        return jsonify({"result": result_en})
-    else:
-        return jsonify({"
+    return jsonify({
+        "result": analysis
+    })
