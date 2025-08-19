@@ -16,12 +16,20 @@ def analyze_code():
 
     code = data["code"]
 
-    # Basit bir örnek kontrol
-    if "print(" in code:
-        analysis = "Kod geçerli görünüyor, print fonksiyonu içeriyor."
+    # Basit test analizleri
+    errors = []
+    if "print(" not in code:
+        errors.append("Kodda 'print()' kullanılmamış.")
+    if "def " not in code:
+        errors.append("Fonksiyon tanımı bulunamadı.")
+    if "import " not in code:
+        errors.append("Herhangi bir kütüphane import edilmemiş.")
+
+    if not errors:
+        result = "Kodda temel kontroller geçti, sorun bulunamadı."
     else:
-        analysis = "Kodda print fonksiyonu bulunamadı."
+        result = " | ".join(errors)
 
     return jsonify({
-        "result": analysis
+        "result": result
     })
