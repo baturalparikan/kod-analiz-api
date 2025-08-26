@@ -1,5 +1,8 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import subprocess
+import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -34,27 +37,58 @@ def analyze_code():
 
     code = data["code"]
 
+    # Önce syntax hatalarını kontrol et
     try:
-        # Önce sentaks hatalarını kontrol et
         compile(code, "<string>", "exec")
-        exec(code, {})
-        return jsonify({"result": "Kodda herhangi bir hata bulunamadı ✅"})
     except Exception as e:
         error_type = type(e).__name__
         line_no = getattr(e, "lineno", None)
         msg = str(e)
-
-        # Kullanıcı dostu açıklama
         explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
-
-        return jsonify({
+        return jsonify([{
             "error_type": error_type,
             "line": line_no,
             "original_message": msg,
-            "explanation": explanation
-        })
+            "explanation": explanation,
+            "simple_explanation": explanation
+        }])
+
+    # Syntax doğruysa pylint ile çoklu hata kontrolü
+    try:
+        # Geçici dosya oluştur
+        temp_file = "temp_code.py"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            f.write(code)
+
+        # pylint çalıştır
+        result = subprocess.run(
+            ["pylint", "--output-format=json", temp_file],
+            capture_output=True, text=True
+        )
+
+        pylint_output = json.loads(result.stdout) if result.stdout else []
+
+        errors = []
+        for item in pylint_output:
+            errors.append({
+                "error_type": item.get("type", "Hata"),
+                "line": item.get("line", "?"),
+                "original_message": item.get("message", ""),
+                "explanation": ERROR_TRANSLATIONS.get(item.get("type", ""), "Bilinmeyen hata."),
+                "simple_explanation": ERROR_TRANSLATIONS.get(item.get("type", ""), "Bilinmeyen hata.")
+            })
+
+        # Geçici dosyayı sil
+        os.remove(temp_file)
+
+        if errors:
+            return jsonify(errors)
+        else:
+            return jsonify({"result": "Kodda herhangi bir hata bulunamadı ✅"})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
