@@ -2,13 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import subprocess
 import json
-import tempfile
 import os
+import tempfile
 
 app = Flask(__name__)
 CORS(app)
 
-# Kullanıcı dostu hata açıklamaları
+# Hata mesajlarını basitleştirmek için sözlük
 ERROR_TRANSLATIONS = {
     "SyntaxError": "Yazım hatası (örn. eksik parantez, yanlış sembol).",
     "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
@@ -37,9 +37,9 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
-    errors = []
 
-    # 1️⃣ Syntax hatalarını yakala
+    # 1️⃣ Syntax hatalarını kontrol et
+    syntax_errors = []
     try:
         compile(code, "<string>", "exec")
     except Exception as e:
@@ -47,14 +47,17 @@ def analyze_code():
         line_no = getattr(e, "lineno", "?")
         msg = str(e)
         explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
-        errors.append({
+        syntax_errors.append({
             "error_type": error_type,
             "line": line_no,
             "original_message": msg,
             "explanation": explanation,
             "simple_explanation": explanation
         })
-        return jsonify(errors)  # Syntax hatası varsa hemen dön
+
+    # Eğer syntax hatası varsa tek JSON array döndür
+    if syntax_errors:
+        return jsonify(syntax_errors)
 
     # 2️⃣ Pylint ile çoklu hata kontrolü
     try:
@@ -62,6 +65,7 @@ def analyze_code():
             temp_file.write(code)
             temp_filename = temp_file.name
 
+        # pylint çalıştır
         result = subprocess.run(
             ["pylint", "--output-format=json", temp_filename],
             capture_output=True, text=True
@@ -69,6 +73,7 @@ def analyze_code():
 
         pylint_output = json.loads(result.stdout) if result.stdout else []
 
+        errors = []
         for item in pylint_output:
             error_type = item.get("type", "Hata")
             line_no = item.get("line", "?")
