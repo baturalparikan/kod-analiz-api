@@ -8,13 +8,8 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-# Hata mesajlarını basitleştirmek için sözlük
+# Kullanıcı dostu hata açıklamaları
 ERROR_TRANSLATIONS = {
-    "convention": "Kod stili uyarısı.",
-    "refactor": "Kodun iyileştirilmesi önerisi.",
-    "warning": "Uyarı, potansiyel sorun.",
-    "error": "Hata oluştu.",
-    "fatal": "Ciddi hata, kod çalışmaz.",
     "SyntaxError": "Yazım hatası (örn. eksik parantez, yanlış sembol).",
     "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
     "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
@@ -44,13 +39,29 @@ def analyze_code():
     code = data["code"]
     errors = []
 
+    # 1️⃣ Syntax hatalarını yakala
     try:
-        # Geçici dosya oluştur
+        compile(code, "<string>", "exec")
+    except Exception as e:
+        error_type = type(e).__name__
+        line_no = getattr(e, "lineno", "?")
+        msg = str(e)
+        explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
+        errors.append({
+            "error_type": error_type,
+            "line": line_no,
+            "original_message": msg,
+            "explanation": explanation,
+            "simple_explanation": explanation
+        })
+        return jsonify(errors)  # Syntax hatası varsa hemen dön
+
+    # 2️⃣ Pylint ile çoklu hata kontrolü
+    try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
             temp_file.write(code)
             temp_filename = temp_file.name
 
-        # pylint çalıştır (kod çalıştırılmadan analiz)
         result = subprocess.run(
             ["pylint", "--output-format=json", temp_filename],
             capture_output=True, text=True
@@ -59,7 +70,7 @@ def analyze_code():
         pylint_output = json.loads(result.stdout) if result.stdout else []
 
         for item in pylint_output:
-            error_type = item.get("type", "error")
+            error_type = item.get("type", "Hata")
             line_no = item.get("line", "?")
             msg = item.get("message", "")
             explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
@@ -71,7 +82,6 @@ def analyze_code():
                 "simple_explanation": explanation
             })
 
-        # Geçici dosyayı sil
         os.remove(temp_filename)
 
         if errors:
