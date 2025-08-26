@@ -71,7 +71,6 @@ def analyze_code():
                 "simple_explanation": explanation
             })
 
-        # Geçici dosyayı sil
         os.remove(temp_filename)
 
         if errors:
