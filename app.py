@@ -3,6 +3,7 @@ from flask_cors import CORS
 import subprocess
 import json
 import os
+import tempfile
 
 app = Flask(__name__)
 CORS(app)
@@ -37,32 +38,36 @@ def analyze_code():
 
     code = data["code"]
 
-    # Önce syntax hatalarını kontrol et
+    # 1️⃣ Syntax hatalarını kontrol et
+    syntax_errors = []
     try:
         compile(code, "<string>", "exec")
     except Exception as e:
         error_type = type(e).__name__
-        line_no = getattr(e, "lineno", None)
+        line_no = getattr(e, "lineno", "?")
         msg = str(e)
         explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
-        return jsonify([{
+        syntax_errors.append({
             "error_type": error_type,
             "line": line_no,
             "original_message": msg,
             "explanation": explanation,
             "simple_explanation": explanation
-        }])
+        })
 
-    # Syntax doğruysa pylint ile çoklu hata kontrolü
+    # Eğer syntax hatası varsa tek JSON array döndür
+    if syntax_errors:
+        return jsonify(syntax_errors)
+
+    # 2️⃣ Pylint ile çoklu hata kontrolü
     try:
-        # Geçici dosya oluştur
-        temp_file = "temp_code.py"
-        with open(temp_file, "w", encoding="utf-8") as f:
-            f.write(code)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
+            temp_file.write(code)
+            temp_filename = temp_file.name
 
         # pylint çalıştır
         result = subprocess.run(
-            ["pylint", "--output-format=json", temp_file],
+            ["pylint", "--output-format=json", temp_filename],
             capture_output=True, text=True
         )
 
@@ -70,16 +75,19 @@ def analyze_code():
 
         errors = []
         for item in pylint_output:
+            error_type = item.get("type", "Hata")
+            line_no = item.get("line", "?")
+            msg = item.get("message", "")
+            explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
             errors.append({
-                "error_type": item.get("type", "Hata"),
-                "line": item.get("line", "?"),
-                "original_message": item.get("message", ""),
-                "explanation": ERROR_TRANSLATIONS.get(item.get("type", ""), "Bilinmeyen hata."),
-                "simple_explanation": ERROR_TRANSLATIONS.get(item.get("type", ""), "Bilinmeyen hata.")
+                "error_type": error_type,
+                "line": line_no,
+                "original_message": msg,
+                "explanation": explanation,
+                "simple_explanation": explanation
             })
 
-        # Geçici dosyayı sil
-        os.remove(temp_file)
+        os.remove(temp_filename)
 
         if errors:
             return jsonify(errors)
