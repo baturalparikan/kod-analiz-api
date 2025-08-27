@@ -10,11 +10,6 @@ app = Flask(__name__)
 CORS(app)
 # ------------------ Güvenli runtime çalıştırma ------------------
 def run_code_safely(code, timeout_sec=3):
-    """
-    Geçici dosyaya yazıp ayrı bir python process'inde çalıştırır.
-    - timeout_sec saniye sonra durdurur (sınırlama).
-    - stdout veya stderr'i döner.
-    """
     temp_filename = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as tmp:
@@ -32,15 +27,24 @@ def run_code_safely(code, timeout_sec=3):
         stderr = proc.stderr.strip()
         returncode = proc.returncode
 
-        # temp dosyayı temizle
         try:
             os.remove(temp_filename)
         except Exception:
             pass
 
         if returncode != 0:
-            # hata var: stderr'i döneceğiz
-            return {"error": stderr or "Runtime error (no stderr)."}
+            # stderr'i ayrıştırarak hata türünü çıkarmaya çalış
+            lines = stderr.splitlines()
+            err_type = "RuntimeError"
+            err_msg = stderr
+            for line in reversed(lines):
+                if ":" in line:
+                    parts = line.split(":", 1)
+                    if parts[0].strip().endswith("Error"):
+                        err_type = parts[0].strip()
+                        err_msg = parts[1].strip()
+                        break
+            return {"error": err_msg, "error_type": err_type}
         else:
             return {"output": stdout}
 
@@ -50,14 +54,15 @@ def run_code_safely(code, timeout_sec=3):
                 os.remove(temp_filename)
         except Exception:
             pass
-        return {"error": "Execution timed out."}
+        return {"error": "Execution timed out.", "error_type": "TimeoutError"}
     except Exception as e:
         try:
             if temp_filename:
                 os.remove(temp_filename)
         except Exception:
             pass
-        return {"error": str(e)}
+        return {"error": str(e), "error_type": type(e).__name__}
+
 # ---------------------------------------------------------------
 
 # Hata mesajlarını basitleştirmek için sözlük
@@ -107,16 +112,16 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
-    lang = data.get("lang", "en")  # Kullanıcı dilini al, yoksa İngilizce
+    lang = data.get("lang", "en")
 
     # ----------------- Syntax hatalarını kontrol et -----------------
     syntax_errors = []
     try:
         compile(code, "<string>", "exec")
     except Exception as e:
-        error_type = type(e).__name__      # hatanın türünü al
-        line_no = getattr(e, "lineno", "?")  # hatanın satır numarası
-        msg = str(e)                        # orijinal hata mesajı
+        error_type = type(e).__name__
+        line_no = getattr(e, "lineno", "?")
+        msg = str(e)
         explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
         syntax_errors.append({
             "error_type": error_type,
@@ -126,30 +131,22 @@ def analyze_code():
             "simple_explanation": explanation
         })
 
-    # Eğer syntax hatası varsa JSON array olarak döndür
     if syntax_errors:
-    return jsonify(syntax_errors)
+        return jsonify(syntax_errors)
 
-runtime_result = run_code_safely(code, timeout_sec=3)
-if "error" in runtime_result:
-    err_msg = runtime_result["error"]
-
-    # Hata türünü belirleme
-    error_type = "RuntimeError"  # varsayılan
-    for key in ERROR_TRANSLATIONS["en"].keys():
-        if key in err_msg:
-            error_type = key
-            break
-
-    explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Runtime error occurred.")
-
-    return jsonify([{
-        "error_type": error_type,
-        "line": "?",  # runtime hatalarında satır numarası genelde parse edilmez
-        "original_message": err_msg,
-        "explanation": explanation,
-        "simple_explanation": explanation
-    }])
+    # ----------------- Runtime (çalışma zamanı) kontrolü -----------------
+    runtime_result = run_code_safely(code, timeout_sec=3)
+    if "error" in runtime_result:
+        err_msg = runtime_result["error"]
+        error_type = runtime_result.get("error_type", "RuntimeError")
+        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Runtime error occurred.")
+        return jsonify([{
+            "error_type": error_type,
+            "line": "?",
+            "original_message": err_msg,
+            "explanation": explanation,
+            "simple_explanation": explanation
+        }])
 
     # ----------------- Pylint ile çoklu hata kontrolü -----------------
     try:
@@ -157,7 +154,6 @@ if "error" in runtime_result:
             temp_file.write(code)
             temp_filename = temp_file.name
 
-        # pylint çalıştır
         result = subprocess.run(
             ["pylint", "--output-format=json", temp_filename],
             capture_output=True, text=True
