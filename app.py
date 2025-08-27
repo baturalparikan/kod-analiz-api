@@ -8,7 +8,8 @@ import sys
 
 app = Flask(__name__)
 CORS(app)
-# ------------------ Güvenli runtime çalıştırma ------------------
+import traceback
+
 def run_code_safely(code, timeout_sec=3):
     temp_filename = None
     try:
@@ -33,18 +34,20 @@ def run_code_safely(code, timeout_sec=3):
             pass
 
         if returncode != 0:
-            # stderr'i ayrıştırarak hata türünü çıkarmaya çalış
-            lines = stderr.splitlines()
-            err_type = "RuntimeError"
-            err_msg = stderr
-            for line in reversed(lines):
-                if ":" in line:
-                    parts = line.split(":", 1)
-                    if parts[0].strip().endswith("Error"):
-                        err_type = parts[0].strip()
-                        err_msg = parts[1].strip()
+            # Hata satırını bul
+            line_no = "?"
+            try:
+                tb_lines = stderr.splitlines()
+                for line in reversed(tb_lines):
+                    if ", line " in line:
+                        # Örn: File "tmp.py", line 2, in <module>
+                        parts = line.split(", line ")
+                        line_no = int(parts[1].split(",")[0])
                         break
-            return {"error": err_msg, "error_type": err_type}
+            except:
+                pass
+
+            return {"error": stderr, "error_type": "RuntimeError", "line": line_no}
         else:
             return {"output": stdout}
 
@@ -54,14 +57,16 @@ def run_code_safely(code, timeout_sec=3):
                 os.remove(temp_filename)
         except Exception:
             pass
-        return {"error": "Execution timed out.", "error_type": "TimeoutError"}
+        return {"error": "Execution timed out.", "error_type": "TimeoutError", "line": "?"}
     except Exception as e:
         try:
             if temp_filename:
                 os.remove(temp_filename)
         except Exception:
             pass
-        return {"error": str(e), "error_type": type(e).__name__}
+        tb = traceback.extract_tb(e.__traceback__)
+        line_no = tb[-1].lineno if tb else "?"
+        return {"error": str(e), "error_type": type(e).__name__, "line": line_no}
 
 # ---------------------------------------------------------------
 
@@ -142,7 +147,7 @@ def analyze_code():
         explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Runtime error occurred.")
         return jsonify([{
             "error_type": error_type,
-            "line": "?",
+            "line": runtime_result.get("line", "?"),
             "original_message": err_msg,
             "explanation": explanation,
             "simple_explanation": explanation
