@@ -10,20 +10,38 @@ CORS(app)
 
 # Hata mesajlarını basitleştirmek için sözlük
 ERROR_TRANSLATIONS = {
-    "SyntaxError": "Yazım hatası (örn. eksik parantez, yanlış sembol).",
-    "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
-    "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
-    "TypeError": "Tür hatası (yanlış tipte değer kullanımı).",
-    "ZeroDivisionError": "Sıfıra bölme hatası.",
-    "IndexError": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
-    "KeyError": "Sözlükte olmayan bir anahtar kullanıldı.",
-    "ValueError": "Geçersiz değer kullanıldı.",
-    "AttributeError": "Nesnede olmayan bir özellik veya metod çağrıldı.",
-    "ImportError": "Modül veya fonksiyon bulunamadı.",
-    "ModuleNotFoundError": "İstenilen modül bulunamadı.",
-    "OverflowError": "Sayı değeri çok büyük.",
-    "RuntimeError": "Çalışma zamanı hatası.",
-    "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).",
+    "tr": {
+        "SyntaxError": "Yazım hatası (eksik veya yanlış sembol).",
+        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
+        "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
+        "TypeError": "Tür hatası (yanlış tipte değer kullanımı).",
+        "ZeroDivisionError": "Sıfıra bölme hatası.",
+        "IndexError": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
+        "KeyError": "Sözlükte olmayan bir anahtar kullanıldı.",
+        "ValueError": "Geçersiz değer kullanıldı.",
+        "AttributeError": "Nesnede olmayan bir özellik veya metod çağrıldı.",
+        "ImportError": "Modül veya fonksiyon bulunamadı.",
+        "ModuleNotFoundError": "İstenilen modül bulunamadı.",
+        "OverflowError": "Sayı değeri çok büyük.",
+        "RuntimeError": "Çalışma zamanı hatası.",
+        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü)."
+    },
+    "en": {
+        "SyntaxError": "Syntax error (missing or incorrect symbol).",
+        "IndentationError": "Indentation error (spaces or tabs incorrect).",
+        "NameError": "Undefined variable or function used.",
+        "TypeError": "Type error (wrong type used).",
+        "ZeroDivisionError": "Division by zero error.",
+        "IndexError": "Index out of range.",
+        "KeyError": "Key does not exist in dictionary.",
+        "ValueError": "Invalid value used.",
+        "AttributeError": "Object has no such attribute or method.",
+        "ImportError": "Module or function not found.",
+        "ModuleNotFoundError": "Requested module not found.",
+        "OverflowError": "Number value too large.",
+        "RuntimeError": "Runtime error occurred.",
+        "RecursionError": "Function called itself too many times (infinite loop)."
+    }
 }
 
 @app.route("/", methods=["GET"])
@@ -37,6 +55,7 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
+    lang = data.get("lang", "en")  # Kullanıcı dilini al, yoksa İngilizce
 
     # 1️⃣ Syntax hatalarını kontrol et
     syntax_errors = []
@@ -46,7 +65,7 @@ def analyze_code():
         error_type = type(e).__name__
         line_no = getattr(e, "lineno", "?")
         msg = str(e)
-        explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
+        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
         syntax_errors.append({
             "error_type": error_type,
             "line": line_no,
@@ -75,10 +94,10 @@ def analyze_code():
 
         errors = []
         for item in pylint_output:
-            error_type = item.get("type", "Hata")
+            error_type = item.get("type", "error")  # Pylint tipleri: convention, refactor, warning, error, fatal
             line_no = item.get("line", "?")
             msg = item.get("message", "")
-            explanation = ERROR_TRANSLATIONS.get(error_type, "Bilinmeyen hata.")
+            explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
             errors.append({
                 "error_type": error_type,
                 "line": line_no,
@@ -92,7 +111,12 @@ def analyze_code():
         if errors:
             return jsonify(errors)
         else:
-            return jsonify({"result": "Kodda herhangi bir hata bulunamadı ✅"})
+            no_error_msg = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("NoError", "No errors found in code.")
+            return jsonify({"result": no_error_msg})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 
     except Exception as e:
         return jsonify({"error": str(e)})
