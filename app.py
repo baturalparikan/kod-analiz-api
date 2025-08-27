@@ -128,20 +128,28 @@ def analyze_code():
 
     # Eğer syntax hatası varsa JSON array olarak döndür
     if syntax_errors:
-        return jsonify(syntax_errors)
+    return jsonify(syntax_errors)
 
-    # ----------------- RUNTIME (çalışma zamanı) kontrolü -----------------
-    runtime_result = run_code_safely(code, timeout_sec=3)
-    if "error" in runtime_result:
-        err_msg = runtime_result["error"]
-        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("RuntimeError", "Runtime error occurred.")
-        return jsonify([{
-            "error_type": "RuntimeError",
-            "line": "?",
-            "original_message": err_msg,
-            "explanation": explanation,
-            "simple_explanation": explanation
-        }])
+runtime_result = run_code_safely(code, timeout_sec=3)
+if "error" in runtime_result:
+    err_msg = runtime_result["error"]
+
+    # Hata türünü belirleme
+    error_type = "RuntimeError"  # varsayılan
+    for key in ERROR_TRANSLATIONS["en"].keys():
+        if key in err_msg:
+            error_type = key
+            break
+
+    explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Runtime error occurred.")
+
+    return jsonify([{
+        "error_type": error_type,
+        "line": "?",  # runtime hatalarında satır numarası genelde parse edilmez
+        "original_message": err_msg,
+        "explanation": explanation,
+        "simple_explanation": explanation
+    }])
 
     # ----------------- Pylint ile çoklu hata kontrolü -----------------
     try:
