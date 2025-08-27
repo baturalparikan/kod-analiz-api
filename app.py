@@ -79,36 +79,120 @@ def run_code_safely(code, timeout_sec=3):
 # Hata mesajlarını basitleştirmek için sözlük
 ERROR_TRANSLATIONS = {
     "tr": {
-        "SyntaxError": "Yazım hatası (eksik veya yanlış sembol).",
-        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
-        "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
-        "TypeError": "Tür hatası (yanlış tipte değer kullanımı).",
-        "ZeroDivisionError": "Sıfıra bölme hatası.",
-        "IndexError": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
-        "KeyError": "Sözlükte olmayan bir anahtar kullanıldı.",
-        "ValueError": "Geçersiz değer kullanıldı.",
-        "AttributeError": "Nesnede olmayan bir özellik veya metod çağrıldı.",
-        "ImportError": "Modül veya fonksiyon bulunamadı.",
-        "ModuleNotFoundError": "İstenilen modül bulunamadı.",
-        "OverflowError": "Sayı değeri çok büyük.",
-        "RuntimeError": "Çalışma zamanı hatası.",
-        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü)."
+        "SyntaxError": {
+            "explanation": "Yazım hatası (eksik veya yanlış sembol).",
+            "solution": "Kodunuzu dikkatlice gözden geçirin, eksik parantez veya iki nokta gibi sembolleri ekleyin."
+        },
+        "IndentationError": {
+            "explanation": "Girinti hatası (boşluklar veya tab yanlış).",
+            "solution": "Girintileri kontrol edin; karışık tab ve boşluk kullanmamaya dikkat edin."
+        },
+        "NameError": {
+            "explanation": "Tanımsız değişken veya fonksiyon kullanılmış.",
+            "solution": "Değişken veya fonksiyon adlarını doğru yazdığınızdan emin olun."
+        },
+        "TypeError": {
+            "explanation": "Tür hatası (yanlış tipte değer kullanımı).",
+            "solution": "Değişkenlerin tiplerini kontrol edin, uygun tipte değerler kullanın."
+        },
+        "ZeroDivisionError": {
+            "explanation": "Sıfıra bölme hatası.",
+            "solution": "Bölünecek sayının sıfır olmadığını kontrol edin."
+        },
+        "IndexError": {
+            "explanation": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
+            "solution": "İndekslerin liste uzunluğu içinde olup olmadığını kontrol edin."
+        },
+        "KeyError": {
+            "explanation": "Sözlükte olmayan bir anahtar kullanıldı.",
+            "solution": "Kullanmak istediğiniz anahtarın sözlükte var olduğundan emin olun."
+        },
+        "ValueError": {
+            "explanation": "Geçersiz değer kullanıldı.",
+            "solution": "Fonksiyon veya metod için geçerli değerler girin."
+        },
+        "AttributeError": {
+            "explanation": "Nesnede olmayan bir özellik veya metod çağrıldı.",
+            "solution": "Nesnenin metod ve özelliklerini kontrol edin."
+        },
+        "ImportError": {
+            "explanation": "Modül veya fonksiyon bulunamadı.",
+            "solution": "Modülün doğru kurulduğundan ve ismini doğru yazdığınızdan emin olun."
+        },
+        "ModuleNotFoundError": {
+            "explanation": "İstenilen modül bulunamadı.",
+            "solution": "Modülün kurulu olup olmadığını ve doğru yazıldığını kontrol edin."
+        },
+        "OverflowError": {
+            "explanation": "Sayı değeri çok büyük.",
+            "solution": "Sayı değerlerini makul aralıkta kullanın."
+        },
+        "RuntimeError": {
+            "explanation": "Çalışma zamanı hatası.",
+            "solution": "Kodun mantığını gözden geçirin, beklenmeyen durumları kontrol edin."
+        },
+        "RecursionError": {
+            "explanation": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).",
+            "solution": "Fonksiyonunuzun çıkış koşulunu doğru tanımladığınızdan emin olun."
+        }
     },
     "en": {
-        "SyntaxError": "Syntax error (missing or incorrect symbol).",
-        "IndentationError": "Indentation error (spaces or tabs incorrect).",
-        "NameError": "Undefined variable or function used.",
-        "TypeError": "Type error (wrong type used).",
-        "ZeroDivisionError": "Division by zero error.",
-        "IndexError": "Index out of range.",
-        "KeyError": "Key does not exist in dictionary.",
-        "ValueError": "Invalid value used.",
-        "AttributeError": "Object has no such attribute or method.",
-        "ImportError": "Module or function not found.",
-        "ModuleNotFoundError": "Requested module not found.",
-        "OverflowError": "Number value too large.",
-        "RuntimeError": "Runtime error occurred.",
-        "RecursionError": "Function called itself too many times (infinite loop)."
+        "SyntaxError": {
+            "explanation": "Syntax error (missing or incorrect symbol).",
+            "solution": "Check your code for missing or misplaced symbols like parentheses or colons."
+        },
+        "IndentationError": {
+            "explanation": "Indentation error (spaces or tabs incorrect).",
+            "solution": "Check your indentation; avoid mixing tabs and spaces."
+        },
+        "NameError": {
+            "explanation": "Undefined variable or function used.",
+            "solution": "Make sure the variable or function exists and is spelled correctly."
+        },
+        "TypeError": {
+            "explanation": "Type error (wrong type used).",
+            "solution": "Check variable types and use compatible types."
+        },
+        "ZeroDivisionError": {
+            "explanation": "Division by zero error.",
+            "solution": "Ensure the denominator is not zero before dividing."
+        },
+        "IndexError": {
+            "explanation": "Index out of range.",
+            "solution": "Check that indexes are within the length of lists or arrays."
+        },
+        "KeyError": {
+            "explanation": "Key does not exist in dictionary.",
+            "solution": "Check that the key exists in the dictionary."
+        },
+        "ValueError": {
+            "explanation": "Invalid value used.",
+            "solution": "Provide a valid value for the function or method."
+        },
+        "AttributeError": {
+            "explanation": "Object has no such attribute or method.",
+            "solution": "Verify that the object has the attribute or method you are calling."
+        },
+        "ImportError": {
+            "explanation": "Module or function not found.",
+            "solution": "Check if the module is installed and the name is correct."
+        },
+        "ModuleNotFoundError": {
+            "explanation": "Requested module not found.",
+            "solution": "Ensure the module is installed and correctly named."
+        },
+        "OverflowError": {
+            "explanation": "Number value too large.",
+            "solution": "Use numbers within a reasonable range."
+        },
+        "RuntimeError": {
+            "explanation": "Runtime error occurred.",
+            "solution": "Check your code logic and handle unexpected cases."
+        },
+        "RecursionError": {
+            "explanation": "Function called itself too many times (infinite loop).",
+            "solution": "Make sure your recursive function has a proper exit condition."
+        }
     }
 }
 
