@@ -11,8 +11,9 @@ CORS(app)
 # Hata mesajlarını basitleştirmek için sözlük
 ERROR_TRANSLATIONS = {
     "tr": {
+        # Python Exception tipleri
         "SyntaxError": "Yazım hatası (eksik veya yanlış sembol).",
-        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
+        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",            
         "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
         "TypeError": "Tür hatası (yanlış tipte değer kullanımı).",
         "ZeroDivisionError": "Sıfıra bölme hatası.",
@@ -24,9 +25,18 @@ ERROR_TRANSLATIONS = {
         "ModuleNotFoundError": "İstenilen modül bulunamadı.",
         "OverflowError": "Sayı değeri çok büyük.",
         "RuntimeError": "Çalışma zamanı hatası.",
-        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü)."
+        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).",
+
+        # Pylint kategorileri
+        "convention": "Kod biçimlendirme kuralı önerisi.",
+        "refactor": "Kod daha temiz/optimize edilebilir.",
+        "warning": "Olası bir sorun tespit edildi.",
+        "error": "Kodda hata bulundu.",
+        "fatal": "Ciddi hata, analiz devam edemedi.",
+        "NoError": "Kodda herhangi bir hata bulunmadı."
     },
     "en": {
+        # Python Exception tipleri
         "SyntaxError": "Syntax error (missing or incorrect symbol).",
         "IndentationError": "Indentation error (spaces or tabs incorrect).",
         "NameError": "Undefined variable or function used.",
@@ -40,7 +50,15 @@ ERROR_TRANSLATIONS = {
         "ModuleNotFoundError": "Requested module not found.",
         "OverflowError": "Number value too large.",
         "RuntimeError": "Runtime error occurred.",
-        "RecursionError": "Function called itself too many times (infinite loop)."
+        "RecursionError": "Function called itself too many times (infinite loop).",
+
+        # Pylint categories
+        "convention": "Coding style suggestion.",
+        "refactor": "Code could be cleaner/optimized.",
+        "warning": "Potential issue detected.",
+        "error": "Error found in code.",
+        "fatal": "Critical error, analysis stopped.",
+        "NoError": "No errors found in code."
     }
 }
 
@@ -94,7 +112,7 @@ def analyze_code():
 
         errors = []
         for item in pylint_output:
-            error_type = item.get("type", "error")  # Pylint tipleri: convention, refactor, warning, error, fatal
+            error_type = item.get("type", "error")  # convention, refactor, warning, error, fatal
             line_no = item.get("line", "?")
             msg = item.get("message", "")
             explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
@@ -113,10 +131,6 @@ def analyze_code():
         else:
             no_error_msg = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("NoError", "No errors found in code.")
             return jsonify({"result": no_error_msg})
-
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
 
     except Exception as e:
         return jsonify({"error": str(e)})
