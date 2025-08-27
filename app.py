@@ -217,13 +217,17 @@ def analyze_code():
         error_type = type(e).__name__
         line_no = getattr(e, "lineno", "?")
         msg = str(e)
-        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
+
+        error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+        explanation = error_info.get("explanation", "No explanation available.")
+        solution = error_info.get("solution", "No solution available.")
+
         syntax_errors.append({
             "error_type": error_type,
             "line": line_no,
             "original_message": msg,
             "explanation": explanation,
-            "simple_explanation": explanation
+            "solution": solution
         })
 
     if syntax_errors:
@@ -234,13 +238,17 @@ def analyze_code():
     if "error" in runtime_result:
         err_msg = runtime_result["error"]
         error_type = runtime_result.get("error_type", "RuntimeError")
-        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Runtime error occurred.")
+
+        error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+        explanation = error_info.get("explanation", "No explanation available.")
+        solution = error_info.get("solution", "No solution available.")
+
         return jsonify([{
             "error_type": error_type,
             "line": runtime_result.get("line", "?"),
             "original_message": err_msg,
             "explanation": explanation,
-            "simple_explanation": explanation
+            "solution": solution
         }])
 
     # ----------------- Pylint ile çoklu hata kontrolü -----------------
@@ -261,13 +269,16 @@ def analyze_code():
             error_type = item.get("type", "error")
             line_no = item.get("line", "?")
             msg = item.get("message", "")
-            explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
+            error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+            explanation = error_info.get("explanation", msg)
+            solution = error_info.get("solution", "")
+
             errors.append({
                 "error_type": error_type,
                 "line": line_no,
                 "original_message": msg,
                 "explanation": explanation,
-                "simple_explanation": explanation
+                "solution": solution
             })
 
         os.remove(temp_filename)
