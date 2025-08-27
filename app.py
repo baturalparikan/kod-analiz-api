@@ -8,7 +8,7 @@ import sys
 import traceback
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 def run_code_safely(code, timeout_sec=3):
     temp_filename = None
     try:
