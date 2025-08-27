@@ -4,16 +4,67 @@ import subprocess
 import json
 import os
 import tempfile
+import sys
 
 app = Flask(__name__)
 CORS(app)
+# ------------------ Güvenli runtime çalıştırma ------------------
+def run_code_safely(code, timeout_sec=3):
+    """
+    Geçici dosyaya yazıp ayrı bir python process'inde çalıştırır.
+    - timeout_sec saniye sonra durdurur (sınırlama).
+    - stdout veya stderr'i döner.
+    """
+    temp_filename = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as tmp:
+            tmp.write(code)
+            temp_filename = tmp.name
+
+        proc = subprocess.run(
+            [sys.executable, temp_filename],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec
+        )
+
+        stdout = proc.stdout.strip()
+        stderr = proc.stderr.strip()
+        returncode = proc.returncode
+
+        # temp dosyayı temizle
+        try:
+            os.remove(temp_filename)
+        except Exception:
+            pass
+
+        if returncode != 0:
+            # hata var: stderr'i döneceğiz
+            return {"error": stderr or "Runtime error (no stderr)."}
+        else:
+            return {"output": stdout}
+
+    except subprocess.TimeoutExpired:
+        try:
+            if temp_filename:
+                os.remove(temp_filename)
+        except Exception:
+            pass
+        return {"error": "Execution timed out."}
+    except Exception as e:
+        try:
+            if temp_filename:
+                os.remove(temp_filename)
+        except Exception:
+            pass
+        return {"error": str(e)}
+# ---------------------------------------------------------------
 
 # Hata mesajlarını basitleştirmek için sözlük
 ERROR_TRANSLATIONS = {
     "tr": {
-        # Python Exception tipleri
         "SyntaxError": "Yazım hatası (eksik veya yanlış sembol).",
-        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",            
+        "IndentationError": "Girinti hatası (boşluklar veya tab yanlış).",
         "NameError": "Tanımsız değişken veya fonksiyon kullanılmış.",
         "TypeError": "Tür hatası (yanlış tipte değer kullanımı).",
         "ZeroDivisionError": "Sıfıra bölme hatası.",
@@ -25,18 +76,9 @@ ERROR_TRANSLATIONS = {
         "ModuleNotFoundError": "İstenilen modül bulunamadı.",
         "OverflowError": "Sayı değeri çok büyük.",
         "RuntimeError": "Çalışma zamanı hatası.",
-        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).",
-
-        # Pylint kategorileri
-        "convention": "Kod biçimlendirme kuralı önerisi.",
-        "refactor": "Kod daha temiz/optimize edilebilir.",
-        "warning": "Olası bir sorun tespit edildi.",
-        "error": "Kodda hata bulundu.",
-        "fatal": "Ciddi hata, analiz devam edemedi.",
-        "NoError": "Kodda herhangi bir hata bulunmadı."
+        "RecursionError": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü)."
     },
     "en": {
-        # Python Exception tipleri
         "SyntaxError": "Syntax error (missing or incorrect symbol).",
         "IndentationError": "Indentation error (spaces or tabs incorrect).",
         "NameError": "Undefined variable or function used.",
@@ -50,15 +92,7 @@ ERROR_TRANSLATIONS = {
         "ModuleNotFoundError": "Requested module not found.",
         "OverflowError": "Number value too large.",
         "RuntimeError": "Runtime error occurred.",
-        "RecursionError": "Function called itself too many times (infinite loop).",
-
-        # Pylint categories
-        "convention": "Coding style suggestion.",
-        "refactor": "Code could be cleaner/optimized.",
-        "warning": "Potential issue detected.",
-        "error": "Error found in code.",
-        "fatal": "Critical error, analysis stopped.",
-        "NoError": "No errors found in code."
+        "RecursionError": "Function called itself too many times (infinite loop)."
     }
 }
 
@@ -75,14 +109,14 @@ def analyze_code():
     code = data["code"]
     lang = data.get("lang", "en")  # Kullanıcı dilini al, yoksa İngilizce
 
-    # 1️⃣ Syntax hatalarını kontrol et
+    # ----------------- Syntax hatalarını kontrol et -----------------
     syntax_errors = []
     try:
         compile(code, "<string>", "exec")
     except Exception as e:
-        error_type = type(e).__name__
-        line_no = getattr(e, "lineno", "?")
-        msg = str(e)
+        error_type = type(e).__name__      # hatanın türünü al
+        line_no = getattr(e, "lineno", "?")  # hatanın satır numarası
+        msg = str(e)                        # orijinal hata mesajı
         explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
         syntax_errors.append({
             "error_type": error_type,
@@ -92,11 +126,24 @@ def analyze_code():
             "simple_explanation": explanation
         })
 
-    # Eğer syntax hatası varsa tek JSON array döndür
+    # Eğer syntax hatası varsa JSON array olarak döndür
     if syntax_errors:
         return jsonify(syntax_errors)
 
-    # 2️⃣ Pylint ile çoklu hata kontrolü
+    # ----------------- RUNTIME (çalışma zamanı) kontrolü -----------------
+    runtime_result = run_code_safely(code, timeout_sec=3)
+    if "error" in runtime_result:
+        err_msg = runtime_result["error"]
+        explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("RuntimeError", "Runtime error occurred.")
+        return jsonify([{
+            "error_type": "RuntimeError",
+            "line": "?",
+            "original_message": err_msg,
+            "explanation": explanation,
+            "simple_explanation": explanation
+        }])
+
+    # ----------------- Pylint ile çoklu hata kontrolü -----------------
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
             temp_file.write(code)
@@ -112,7 +159,7 @@ def analyze_code():
 
         errors = []
         for item in pylint_output:
-            error_type = item.get("type", "error")  # convention, refactor, warning, error, fatal
+            error_type = item.get("type", "error")
             line_no = item.get("line", "?")
             msg = item.get("message", "")
             explanation = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, "Unknown error.")
@@ -134,7 +181,3 @@ def analyze_code():
 
     except Exception as e:
         return jsonify({"error": str(e)})
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
