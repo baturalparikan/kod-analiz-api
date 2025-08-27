@@ -5,11 +5,10 @@ import json
 import os
 import tempfile
 import sys
+import traceback
 
 app = Flask(__name__)
 CORS(app)
-import traceback
-
 def run_code_safely(code, timeout_sec=3):
     temp_filename = None
     try:
@@ -28,6 +27,7 @@ def run_code_safely(code, timeout_sec=3):
         stderr = proc.stderr.strip()
         returncode = proc.returncode
 
+        # Geçici dosyayı sil
         try:
             os.remove(temp_filename)
         except Exception:
@@ -40,14 +40,20 @@ def run_code_safely(code, timeout_sec=3):
                 tb_lines = stderr.splitlines()
                 for line in reversed(tb_lines):
                     if ", line " in line:
-                        # Örn: File "tmp.py", line 2, in <module>
                         parts = line.split(", line ")
                         line_no = int(parts[1].split(",")[0])
                         break
             except:
                 pass
 
-            return {"error": stderr, "error_type": "RuntimeError", "line": line_no}
+            # Hata tipini ayrıştır
+            last_line = stderr.splitlines()[-1] if stderr else ""
+            if ": " in last_line:
+                err_type, err_msg = last_line.split(": ", 1)
+            else:
+                err_type, err_msg = "RuntimeError", stderr
+
+            return {"error": err_msg, "error_type": err_type.strip(), "line": line_no}
         else:
             return {"output": stdout}
 
