@@ -81,7 +81,7 @@ ERROR_TRANSLATIONS = {
     "tr": {
         "SyntaxError": {
             "explanation": "Yazım hatası (eksik veya yanlış sembol).",
-            "solution": "Kodunuzu dikkatlice gözden geçirin, eksik parantez veya iki nokta gibi sembolleri ekleyin."
+            "solution": "Hatalı satırı gözden geçirin, eksik parantez veya iki nokta gibi sembolleri ekleyin veya değiştirin."
         },
         "IndentationError": {
             "explanation": "Girinti hatası (boşluklar veya tab yanlış).",
@@ -101,7 +101,7 @@ ERROR_TRANSLATIONS = {
         },
         "IndexError": {
             "explanation": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
-            "solution": "İndekslerin liste uzunluğu içinde olup olmadığını kontrol edin."
+            "solution": "İndekslerin liste içinde olup olmadığını kontrol edin."
         },
         "KeyError": {
             "explanation": "Sözlükte olmayan bir anahtar kullanıldı.",
