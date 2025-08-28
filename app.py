@@ -9,6 +9,7 @@ import traceback
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
 def run_code_safely(code, timeout_sec=3):
     temp_filename = None
     try:
@@ -27,14 +28,12 @@ def run_code_safely(code, timeout_sec=3):
         stderr = proc.stderr.strip()
         returncode = proc.returncode
 
-        # Geçici dosyayı sil
         try:
             os.remove(temp_filename)
         except Exception:
             pass
 
         if returncode != 0:
-            # Hata satırını bul
             line_no = "?"
             try:
                 tb_lines = stderr.splitlines()
@@ -46,7 +45,6 @@ def run_code_safely(code, timeout_sec=3):
             except:
                 pass
 
-            # Hata tipini ayrıştır
             last_line = stderr.splitlines()[-1] if stderr else ""
             if ": " in last_line:
                 err_type, err_msg = last_line.split(": ", 1)
@@ -74,126 +72,130 @@ def run_code_safely(code, timeout_sec=3):
         line_no = tb[-1].lineno if tb else "?"
         return {"error": str(e), "error_type": type(e).__name__, "line": line_no}
 
-# ---------------------------------------------------------------
 
-# Hata mesajlarını basitleştirmek için sözlük
+# ---------------------------------------------------------------
+# Hata mesajlarını basitleştirmek için sözlük (tüm diller)
 ERROR_TRANSLATIONS = {
     "tr": {
-        "SyntaxError": {
-            "explanation": "Yazım hatası (eksik veya yanlış sembol).",
-            "solution": "Hatalı satırı gözden geçirin, eksik parantez veya iki nokta gibi sembolleri ekleyin veya değiştirin."
-        },
-        "IndentationError": {
-            "explanation": "Girinti hatası (boşluklar veya tab yanlış).",
-            "solution": "Girintileri kontrol edin; karışık tab ve boşluk kullanmamaya dikkat edin."
-        },
-        "NameError": {
-            "explanation": "Tanımsız değişken veya fonksiyon kullanılmış.",
-            "solution": "Değişken veya fonksiyon adlarını doğru yazdığınızdan emin olun."
-        },
-        "TypeError": {
-            "explanation": "Tür hatası (yanlış tipte değer kullanımı).",
-            "solution": "Değişkenlerin tiplerini kontrol edin, uygun tipte değerler kullanın."
-        },
-        "ZeroDivisionError": {
-            "explanation": "Sıfıra bölme hatası.",
-            "solution": "Bölünecek sayının sıfır olmadığını kontrol edin."
-        },
-        "IndexError": {
-            "explanation": "Liste/array içinde olmayan bir elemana erişmeye çalıştın.",
-            "solution": "İndekslerin liste içinde olup olmadığını kontrol edin."
-        },
-        "KeyError": {
-            "explanation": "Sözlükte olmayan bir anahtar kullanıldı.",
-            "solution": "Kullanmak istediğiniz anahtarın sözlükte var olduğundan emin olun."
-        },
-        "ValueError": {
-            "explanation": "Geçersiz değer kullanıldı.",
-            "solution": "Fonksiyon veya metod için geçerli değerler girin."
-        },
-        "AttributeError": {
-            "explanation": "Nesnede olmayan bir özellik veya metod çağrıldı.",
-            "solution": "Nesnenin metod ve özelliklerini kontrol edin."
-        },
-        "ImportError": {
-            "explanation": "Modül veya fonksiyon bulunamadı.",
-            "solution": "Modülün doğru kurulduğundan ve ismini doğru yazdığınızdan emin olun."
-        },
-        "ModuleNotFoundError": {
-            "explanation": "İstenilen modül bulunamadı.",
-            "solution": "Modülün kurulu olup olmadığını ve doğru yazıldığını kontrol edin."
-        },
-        "OverflowError": {
-            "explanation": "Sayı değeri çok büyük.",
-            "solution": "Sayı değerlerini makul aralıkta kullanın."
-        },
-        "RuntimeError": {
-            "explanation": "Çalışma zamanı hatası.",
-            "solution": "Kodun mantığını gözden geçirin, beklenmeyen durumları kontrol edin."
-        },
-        "RecursionError": {
-            "explanation": "Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).",
-            "solution": "Fonksiyonunuzun çıkış koşulunu doğru tanımladığınızdan emin olun."
-        }
+        "SyntaxError": {"explanation":"Yazım hatası (eksik veya yanlış sembol).","solution":"Hatalı satırı gözden geçirin, eksik parantez veya iki nokta gibi sembolleri ekleyin veya değiştirin."},
+        "IndentationError": {"explanation":"Girinti hatası (boşluklar veya tab yanlış).","solution":"Girintileri kontrol edin; karışık tab ve boşluk kullanmamaya dikkat edin."},
+        "NameError": {"explanation":"Tanımsız değişken veya fonksiyon kullanılmış.","solution":"Değişken veya fonksiyon adlarını doğru yazdığınızdan emin olun."},
+        "TypeError": {"explanation":"Tür hatası (yanlış tipte değer kullanımı).","solution":"Değişkenlerin tiplerini kontrol edin, uygun tipte değerler kullanın."},
+        "ZeroDivisionError": {"explanation":"Sıfıra bölme hatası.","solution":"Bölünecek sayının sıfır olmadığını kontrol edin."},
+        "IndexError": {"explanation":"Liste/array içinde olmayan bir elemana erişmeye çalıştın.","solution":"İndekslerin liste içinde olup olmadığını kontrol edin."},
+        "KeyError": {"explanation":"Sözlükte olmayan bir anahtar kullanıldı.","solution":"Kullanmak istediğiniz anahtarın sözlükte var olduğundan emin olun."},
+        "ValueError": {"explanation":"Geçersiz değer kullanıldı.","solution":"Fonksiyon veya metod için geçerli değerler girin."},
+        "AttributeError": {"explanation":"Nesnede olmayan bir özellik veya metod çağrıldı.","solution":"Nesnenin metod ve özelliklerini kontrol edin."},
+        "ImportError": {"explanation":"Modül veya fonksiyon bulunamadı.","solution":"Modülün doğru kurulduğundan ve ismini doğru yazdığınızdan emin olun."},
+        "ModuleNotFoundError": {"explanation":"İstenilen modül bulunamadı.","solution":"Modülün kurulu olup olmadığını ve doğru yazıldığını kontrol edin."},
+        "OverflowError": {"explanation":"Sayı değeri çok büyük.","solution":"Sayı değerlerini makul aralıkta kullanın."},
+        "RuntimeError": {"explanation":"Çalışma zamanı hatası.","solution":"Kodun mantığını gözden geçirin, beklenmeyen durumları kontrol edin."},
+        "RecursionError": {"explanation":"Fonksiyon çok fazla kez kendini çağırdı (sonsuz döngü).","solution":"Fonksiyonunuzun çıkış koşulunu doğru tanımladığınızdan emin olun."},
+        "NoError": "Kodda hata bulunamadı."
     },
     "en": {
-        "SyntaxError": {
-            "explanation": "Syntax error (missing or incorrect symbol).",
-            "solution": "Check your code for missing or misplaced symbols like parentheses or colons."
-        },
-        "IndentationError": {
-            "explanation": "Indentation error (spaces or tabs incorrect).",
-            "solution": "Check your indentation; avoid mixing tabs and spaces."
-        },
-        "NameError": {
-            "explanation": "Undefined variable or function used.",
-            "solution": "Make sure the variable or function exists and is spelled correctly."
-        },
-        "TypeError": {
-            "explanation": "Type error (wrong type used).",
-            "solution": "Check variable types and use compatible types."
-        },
-        "ZeroDivisionError": {
-            "explanation": "Division by zero error.",
-            "solution": "Ensure the denominator is not zero before dividing."
-        },
-        "IndexError": {
-            "explanation": "Index out of range.",
-            "solution": "Check that indexes are within the length of lists or arrays."
-        },
-        "KeyError": {
-            "explanation": "Key does not exist in dictionary.",
-            "solution": "Check that the key exists in the dictionary."
-        },
-        "ValueError": {
-            "explanation": "Invalid value used.",
-            "solution": "Provide a valid value for the function or method."
-        },
-        "AttributeError": {
-            "explanation": "Object has no such attribute or method.",
-            "solution": "Verify that the object has the attribute or method you are calling."
-        },
-        "ImportError": {
-            "explanation": "Module or function not found.",
-            "solution": "Check if the module is installed and the name is correct."
-        },
-        "ModuleNotFoundError": {
-            "explanation": "Requested module not found.",
-            "solution": "Ensure the module is installed and correctly named."
-        },
-        "OverflowError": {
-            "explanation": "Number value too large.",
-            "solution": "Use numbers within a reasonable range."
-        },
-        "RuntimeError": {
-            "explanation": "Runtime error occurred.",
-            "solution": "Check your code logic and handle unexpected cases."
-        },
-        "RecursionError": {
-            "explanation": "Function called itself too many times (infinite loop).",
-            "solution": "Make sure your recursive function has a proper exit condition."
-        }
-    }
+        "SyntaxError": {"explanation":"Syntax error (missing or incorrect symbol).","solution":"Check your code for missing or misplaced symbols like parentheses or colons."},
+        "IndentationError": {"explanation":"Indentation error (spaces or tabs incorrect).","solution":"Check your indentation; avoid mixing tabs and spaces."},
+        "NameError": {"explanation":"Undefined variable or function used.","solution":"Make sure the variable or function exists and is spelled correctly."},
+        "TypeError": {"explanation":"Type error (wrong type used).","solution":"Check variable types and use compatible types."},
+        "ZeroDivisionError": {"explanation":"Division by zero error.","solution":"Ensure the denominator is not zero before dividing."},
+        "IndexError": {"explanation":"Index out of range.","solution":"Check that indexes are within the length of lists or arrays."},
+        "KeyError": {"explanation":"Key does not exist in dictionary.","solution":"Check that the key exists in the dictionary."},
+        "ValueError": {"explanation":"Invalid value used.","solution":"Provide a valid value for the function or method."},
+        "AttributeError": {"explanation":"Object has no such attribute or method.","solution":"Verify that the object has the attribute or method you are calling."},
+        "ImportError": {"explanation":"Module or function not found.","solution":"Check if the module is installed and the name is correct."},
+        "ModuleNotFoundError": {"explanation":"Requested module not found.","solution":"Ensure the module is installed and correctly named."},
+        "OverflowError": {"explanation":"Number value too large.","solution":"Use numbers within a reasonable range."},
+        "RuntimeError": {"explanation":"Runtime error occurred.","solution":"Check your code logic and handle unexpected cases."},
+        "RecursionError": {"explanation":"Function called itself too many times (infinite loop).","solution":"Make sure your recursive function has a proper exit condition."},
+        "NoError": "No errors found in code."
+    },
+    "de": {
+    "SyntaxError": {"explanation":"Syntaxfehler (fehlendes oder falsches Symbol).","solution":"Überprüfen Sie Ihren Code auf fehlende oder falsch platzierte Symbole wie Klammern oder Doppelpunkte."},
+    "IndentationError": {"explanation":"Einrückungsfehler (Leerzeichen oder Tabs falsch).","solution":"Überprüfen Sie die Einrückungen; vermeiden Sie gemischte Tabs und Leerzeichen."},
+    "NameError": {"explanation":"Nicht definierte Variable oder Funktion verwendet.","solution":"Stellen Sie sicher, dass die Variable oder Funktion existiert und korrekt geschrieben ist."},
+    "TypeError": {"explanation":"Typfehler (falscher Typ verwendet).","solution":"Überprüfen Sie die Variablentypen und verwenden Sie kompatible Typen."},
+    "ZeroDivisionError": {"explanation":"Division durch Null Fehler.","solution":"Stellen Sie sicher, dass der Nenner vor der Division nicht null ist."},
+    "IndexError": {"explanation":"Index außerhalb des Bereichs.","solution":"Überprüfen Sie, dass die Indizes innerhalb der Länge von Listen oder Arrays liegen."},
+    "KeyError": {"explanation":"Schlüssel existiert nicht im Wörterbuch.","solution":"Überprüfen Sie, dass der Schlüssel im Wörterbuch existiert."},
+    "ValueError": {"explanation":"Ungültiger Wert verwendet.","solution":"Geben Sie einen gültigen Wert für die Funktion oder Methode ein."},
+    "AttributeError": {"explanation":"Objekt hat dieses Attribut oder diese Methode nicht.","solution":"Überprüfen Sie, ob das Objekt das aufgerufene Attribut oder die Methode besitzt."},
+    "ImportError": {"explanation":"Modul oder Funktion nicht gefunden.","solution":"Überprüfen Sie, ob das Modul installiert ist und der Name korrekt geschrieben ist."},
+    "ModuleNotFoundError": {"explanation":"Angefordertes Modul nicht gefunden.","solution":"Stellen Sie sicher, dass das Modul installiert und korrekt benannt ist."},
+    "OverflowError": {"explanation":"Zahlenwert zu groß.","solution":"Verwenden Sie Zahlen innerhalb eines angemessenen Bereichs."},
+    "RuntimeError": {"explanation":"Laufzeitfehler aufgetreten.","solution":"Überprüfen Sie die Logik Ihres Codes und behandeln Sie unerwartete Fälle."},
+    "RecursionError": {"explanation":"Funktion hat sich zu oft selbst aufgerufen (Endlosschleife).","solution":"Stellen Sie sicher, dass Ihre rekursive Funktion eine richtige Abbruchbedingung hat."},
+    "NoError": "Keine Fehler im Code gefunden."
+},
+"ru": {
+    "SyntaxError": {"explanation":"Синтаксическая ошибка (отсутствует или неверный символ).","solution":"Проверьте код на отсутствие или неправильное расположение символов, таких как скобки или двоеточия."},
+    "IndentationError": {"explanation":"Ошибка отступа (неправильные пробелы или табуляции).","solution":"Проверьте отступы; избегайте смешивания табуляций и пробелов."},
+    "NameError": {"explanation":"Использована неопределённая переменная или функция.","solution":"Убедитесь, что переменная или функция существует и написана правильно."},
+    "TypeError": {"explanation":"Ошибка типа (неверный тип значения).","solution":"Проверьте типы переменных и используйте совместимые типы."},
+    "ZeroDivisionError": {"explanation":"Ошибка деления на ноль.","solution":"Убедитесь, что делитель не равен нулю."},
+    "IndexError": {"explanation":"Индекс вне диапазона.","solution":"Проверьте, что индексы находятся в пределах длины списка или массива."},
+    "KeyError": {"explanation":"Ключ отсутствует в словаре.","solution":"Проверьте, что ключ существует в словаре."},
+    "ValueError": {"explanation":"Использовано недопустимое значение.","solution":"Укажите допустимое значение для функции или метода."},
+    "AttributeError": {"explanation":"Объект не имеет такого атрибута или метода.","solution":"Проверьте, есть ли у объекта вызываемый атрибут или метод."},
+    "ImportError": {"explanation":"Модуль или функция не найдены.","solution":"Проверьте, установлен ли модуль и правильно ли написано его имя."},
+    "ModuleNotFoundError": {"explanation":"Запрошенный модуль не найден.","solution":"Убедитесь, что модуль установлен и правильно назван."},
+    "OverflowError": {"explanation":"Значение числа слишком велико.","solution":"Используйте числа в разумных пределах."},
+    "RuntimeError": {"explanation":"Произошла ошибка выполнения.","solution":"Проверьте логику кода и обработайте неожиданные ситуации."},
+    "RecursionError": {"explanation":"Функция вызвала сама себя слишком много раз (бесконечный цикл).","solution":"Убедитесь, что рекурсивная функция имеет правильное условие выхода."},
+    "NoError": "Ошибок в коде не найдено."
+},
+"ar": {
+    "SyntaxError": {"explanation":"خطأ في الصياغة (رمز مفقود أو غير صحيح).","solution":"تحقق من كودك من الرموز المفقودة أو الموضوعة بشكل خاطئ مثل الأقواس أو النقطتين."},
+    "IndentationError": {"explanation":"خطأ في المسافة البادئة (المسافات أو علامات الجدولة غير صحيحة).","solution":"تحقق من المسافات البادئة؛ تجنب خلط علامات الجدولة والمسافات."},
+    "NameError": {"explanation":"تم استخدام متغير أو دالة غير معرفة.","solution":"تأكد من أن المتغير أو الدالة موجودة ومكتوبة بشكل صحيح."},
+    "TypeError": {"explanation":"خطأ في النوع (استخدام نوع خاطئ).","solution":"تحقق من أنواع المتغيرات واستخدم أنواع متوافقة."},
+    "ZeroDivisionError": {"explanation":"خطأ القسمة على صفر.","solution":"تأكد من أن المقسوم عليه ليس صفرًا."},
+    "IndexError": {"explanation":"الفهرس خارج النطاق.","solution":"تحقق من أن الفهارس ضمن طول القوائم أو المصفوفات."},
+    "KeyError": {"explanation":"المفتاح غير موجود في القاموس.","solution":"تأكد من أن المفتاح موجود في القاموس."},
+    "ValueError": {"explanation":"تم استخدام قيمة غير صالحة.","solution":"أدخل قيمة صالحة للدالة أو الطريقة."},
+    "AttributeError": {"explanation":"الكائن لا يحتوي على هذا السمة أو الدالة.","solution":"تحقق من أن الكائن يحتوي على السمة أو الدالة المطلوبة."},
+    "ImportError": {"explanation":"الوحدة أو الدالة غير موجودة.","solution":"تحقق من تثبيت الوحدة وكتابة الاسم بشكل صحيح."},
+    "ModuleNotFoundError": {"explanation":"الوحدة المطلوبة غير موجودة.","solution":"تأكد من تثبيت الوحدة وكتابة الاسم بشكل صحيح."},
+    "OverflowError": {"explanation":"قيمة الرقم كبيرة جدًا.","solution":"استخدم الأرقام ضمن نطاق معقول."},
+    "RuntimeError": {"explanation":"حدث خطأ أثناء التشغيل.","solution":"تحقق من منطق الكود وتعامل مع الحالات غير المتوقعة."},
+    "RecursionError": {"explanation":"استدعاء الدالة لنفسها مرات كثيرة (حلقة لا نهائية).","solution":"تأكد من أن الدالة المتكررة لها شرط خروج صحيح."},
+    "NoError": "لم يتم العثور على أي أخطاء في الكود."
+},
+"zh": {
+    "SyntaxError": {"explanation":"语法错误（缺少或错误的符号）。","solution":"检查代码中是否缺少或放错符号，如括号或冒号。"},
+    "IndentationError": {"explanation":"缩进错误（空格或制表符错误）。","solution":"检查缩进；避免混合使用制表符和空格。"},
+    "NameError": {"explanation":"使用了未定义的变量或函数。","solution":"确保变量或函数存在且拼写正确。"},
+    "TypeError": {"explanation":"类型错误（使用了错误的类型）。","solution":"检查变量类型并使用兼容类型。"},
+    "ZeroDivisionError": {"explanation":"除以零错误。","solution":"确保除数不为零。"},
+    "IndexError": {"explanation":"索引超出范围。","solution":"检查索引是否在列表或数组长度范围内。"},
+    "KeyError": {"explanation":"字典中不存在该键。","solution":"检查字典中是否存在该键。"},
+    "ValueError": {"explanation":"使用了无效值。","solution":"为函数或方法提供有效值。"},
+    "AttributeError": {"explanation":"对象没有该属性或方法。","solution":"确认对象是否具有调用的属性或方法。"},
+    "ImportError": {"explanation":"模块或函数未找到。","solution":"检查模块是否已安装且名称正确。"},
+    "ModuleNotFoundError": {"explanation":"请求的模块未找到。","solution":"确保模块已安装且名称正确。"},
+    "OverflowError": {"explanation":"数字值过大。","solution":"使用合理范围内的数字。"},
+    "RuntimeError": {"explanation":"运行时错误。","solution":"检查代码逻辑并处理意外情况。"},
+    "RecursionError": {"explanation":"函数调用自身次数过多（无限循环）。","solution":"确保递归函数有正确的退出条件。"},
+    "NoError": "代码未发现错误。"
+},
+"es": {
+    "SyntaxError": {"explanation":"Error de sintaxis (símbolo faltante o incorrecto).","solution":"Verifique su código en busca de símbolos faltantes o mal ubicados como paréntesis o dos puntos."},
+    "IndentationError": {"explanation":"Error de sangría (espacios o tabulación incorrectos).","solution":"Revise la sangría; evite mezclar tabulaciones y espacios."},
+    "NameError": {"explanation":"Variable o función indefinida utilizada.","solution":"Asegúrese de que la variable o función exista y esté escrita correctamente."},
+    "TypeError": {"explanation":"Error de tipo (tipo incorrecto utilizado).","solution":"Verifique los tipos de variables y use tipos compatibles."},
+    "ZeroDivisionError": {"explanation":"Error de división por cero.","solution":"Asegúrese de que el denominador no sea cero antes de dividir."},
+    "IndexError": {"explanation":"Índice fuera de rango.","solution":"Verifique que los índices estén dentro de la longitud de listas o matrices."},
+    "KeyError": {"explanation":"La clave no existe en el diccionario.","solution":"Verifique que la clave exista en el diccionario."},
+    "ValueError": {"explanation":"Valor inválido utilizado.","solution":"Proporcione un valor válido para la función o método."},
+    "AttributeError": {"explanation":"El objeto no tiene tal atributo o método.","solution":"Verifique que el objeto tenga el atributo o método que está llamando."},
+    "ImportError": {"explanation":"Módulo o función no encontrado.","solution":"Verifique si el módulo está instalado y que el nombre sea correcto."},
+    "ModuleNotFoundError": {"explanation":"Módulo solicitado no encontrado.","solution":"Asegúrese de que el módulo esté instalado y correctamente nombrado."},
+    "OverflowError": {"explanation":"Valor numérico demasiado grande.","solution":"Use números dentro de un rango razonable."},
+    "RuntimeError": {"explanation":"Ocurrió un error en tiempo de ejecución.","solution":"Revise la lógica de su código y maneje casos inesperados."},
+    "RecursionError": {"explanation":"La función se llamó a sí misma demasiadas veces (bucle infinito).","solution":"Asegúrese de que su función recursiva tenga una condición de salida adecuada."},
+    "NoError": "No se encontraron errores en el código."
+}
+
 }
 
 @app.route("/", methods=["GET"])
@@ -291,3 +293,6 @@ def analyze_code():
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
+if __name__ == "__main__":
+    app.run(debug=True)
