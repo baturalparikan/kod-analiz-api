@@ -252,46 +252,62 @@ def analyze_code():
 
     # ----------------- Java kodu kontrolü -----------------
     if lang == "java":
-        temp_filename = None
+        import re
+        temp_dir = tempfile.mkdtemp()
+        java_file_path = os.path.join(temp_dir, "Main.java")
+        class_name = "Main"
+
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".java", mode="w", encoding="utf-8") as temp_file:
-                temp_file.write(code)
-                temp_filename = temp_file.name
+            with open(java_file_path, "w", encoding="utf-8") as f:
+                f.write(code)
 
             # Java derleme
-            javac_result = subprocess.run(
-                ["javac", temp_filename],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-
-            if javac_result.returncode != 0:
-                return jsonify([{
-                    "error_type": "CompilationError",
-                    "line": "?",
-                    "original_message": javac_result.stderr.strip(),
-                    "explanation": "Java kodu derlenemedi.",
-                    "solution": "Derleme hatasını kontrol edin ve kodu düzeltin."
-                }])
-
-            # Derlenen sınıfı çalıştır
-            class_name = os.path.splitext(os.path.basename(temp_filename))[0]
-            run_result = subprocess.run(
-                ["java", "-cp", os.path.dirname(temp_filename), class_name],
+            compile_proc = subprocess.run(
+                ["javac", java_file_path],
                 capture_output=True, text=True, timeout=5
             )
 
-            if run_result.returncode != 0:
+            # Derleme hatası kontrolü
+            if compile_proc.returncode != 0:
+                errors = []
+                for line in compile_proc.stderr.splitlines():
+                    match = re.search(r'(?:(Main\.java):)?(\d+):\s*(.*)', line)
+                    if match:
+                        line_no = int(match.group(2))
+                        msg = match.group(3)
+                        errors.append({
+                            "error_type": "CompilationError",
+                            "line": line_no,
+                            "original_message": msg,
+                            "explanation": "Java kodunda derleme hatası oluştu.",
+                            "solution": "Hata mesajını kontrol edin ve kodu düzeltin."
+                        })
+                if not errors:
+                    errors.append({
+                        "error_type": "CompilationError",
+                        "line": "?",
+                        "original_message": compile_proc.stderr.strip(),
+                        "explanation": "Java kodu derlenemedi.",
+                        "solution": "Derleme hatasını kontrol edin ve kodu düzeltin."
+                    })
+                return jsonify(errors)
+
+            # Java çalıştırma
+            run_proc = subprocess.run(
+                ["java", "-cp", temp_dir, class_name],
+                capture_output=True, text=True, timeout=5
+            )
+
+            if run_proc.returncode != 0:
                 return jsonify([{
                     "error_type": "RuntimeError",
                     "line": "?",
-                    "original_message": run_result.stderr.strip(),
+                    "original_message": run_proc.stderr.strip(),
                     "explanation": "Java kodu çalıştırılırken hata oluştu.",
                     "solution": "Kodun mantığını ve hatayı gözden geçirin."
                 }])
 
-            return jsonify({"output": run_result.stdout.strip()})
+            return jsonify({"output": run_proc.stdout.strip()})
 
         except subprocess.TimeoutExpired:
             return jsonify([{
@@ -302,13 +318,10 @@ def analyze_code():
                 "solution": "Döngüleri veya uzun işlemleri optimize edin."
             }])
         finally:
-            # Dosya temizleme
             try:
-                if temp_filename and os.path.exists(temp_filename):
-                    os.remove(temp_filename)
-                class_file = os.path.splitext(temp_filename)[0] + ".class"
-                if os.path.exists(class_file):
-                    os.remove(class_file)
+                for f in os.listdir(temp_dir):
+                    os.remove(os.path.join(temp_dir, f))
+                os.rmdir(temp_dir)
             except Exception:
                 pass
 
@@ -336,7 +349,6 @@ def analyze_code():
         if syntax_errors:
             return jsonify(syntax_errors)
 
-        # ----------------- Runtime (çalışma zamanı) kontrolü -----------------
         runtime_result = run_code_safely(code, timeout_sec=3)
         if "error" in runtime_result:
             err_msg = runtime_result["error"]
@@ -353,7 +365,7 @@ def analyze_code():
                 "solution": solution
             }])
 
-        # ----------------- Pylint ile çoklu hata kontrolü -----------------
+        # Pylint kontrolü
         errors = []
         temp_filename = None
         try:
@@ -395,3 +407,4 @@ def analyze_code():
         finally:
             if temp_filename and os.path.exists(temp_filename):
                 os.remove(temp_filename)
+
