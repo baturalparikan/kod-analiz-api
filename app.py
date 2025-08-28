@@ -250,26 +250,26 @@ def analyze_code():
     code = data["code"]
     lang = data.get("lang", "en").lower()
 
-    # ----------------- Java kodu kontrolü -----------------
+    # ----------------- Java kodu -----------------
     if lang == "java":
-        import re
         temp_dir = tempfile.mkdtemp()
         java_file_path = os.path.join(temp_dir, "Main.java")
         class_name = "Main"
-
         try:
             with open(java_file_path, "w", encoding="utf-8") as f:
                 f.write(code)
 
-            # Java derleme
+            # Derleme
             compile_proc = subprocess.run(
                 ["javac", java_file_path],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5
             )
 
-            # Derleme hatası kontrolü
             if compile_proc.returncode != 0:
                 errors = []
+                import re
                 for line in compile_proc.stderr.splitlines():
                     match = re.search(r'(?:(Main\.java):)?(\d+):\s*(.*)', line)
                     if match:
@@ -292,10 +292,12 @@ def analyze_code():
                     })
                 return jsonify(errors)
 
-            # Java çalıştırma
+            # Çalıştırma
             run_proc = subprocess.run(
                 ["java", "-cp", temp_dir, class_name],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5
             )
 
             if run_proc.returncode != 0:
@@ -304,7 +306,7 @@ def analyze_code():
                     "line": "?",
                     "original_message": run_proc.stderr.strip(),
                     "explanation": "Java kodu çalıştırılırken hata oluştu.",
-                    "solution": "Kodun mantığını ve hatayı gözden geçirin."
+                    "solution": "Kodun mantığını gözden geçirin."
                 }])
 
             return jsonify({"output": run_proc.stdout.strip()})
@@ -325,44 +327,29 @@ def analyze_code():
             except Exception:
                 pass
 
-    # ----------------- Python kodu kontrolü -----------------
+    # ----------------- Python kodu -----------------
     else:
-        syntax_errors = []
+        # Syntax kontrolü
         try:
             compile(code, "<string>", "exec")
         except Exception as e:
-            error_type = type(e).__name__
-            line_no = getattr(e, "lineno", "?")
-            msg = str(e)
-            error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
-            explanation = error_info.get("explanation", "No explanation available.")
-            solution = error_info.get("solution", "No solution available.")
-
-            syntax_errors.append({
-                "error_type": error_type,
-                "line": line_no,
-                "original_message": msg,
-                "explanation": explanation,
-                "solution": solution
-            })
-
-        if syntax_errors:
-            return jsonify(syntax_errors)
-
-        runtime_result = run_code_safely(code, timeout_sec=3)
-        if "error" in runtime_result:
-            err_msg = runtime_result["error"]
-            error_type = runtime_result.get("error_type", "RuntimeError")
-            error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
-            explanation = error_info.get("explanation", "No explanation available.")
-            solution = error_info.get("solution", "No solution available.")
-
             return jsonify([{
-                "error_type": error_type,
+                "error_type": type(e).__name__,
+                "line": getattr(e, "lineno", "?"),
+                "original_message": str(e),
+                "explanation": "Python kodunda syntax hatası.",
+                "solution": "Hatalı satırı düzeltin."
+            }])
+
+        # Runtime kontrolü
+        runtime_result = run_python_code(code)
+        if "error" in runtime_result:
+            return jsonify([{
+                "error_type": runtime_result.get("error_type", "RuntimeError"),
                 "line": runtime_result.get("line", "?"),
-                "original_message": err_msg,
-                "explanation": explanation,
-                "solution": solution
+                "original_message": runtime_result.get("error"),
+                "explanation": "Python kodunda çalışma zamanı hatası.",
+                "solution": "Hatalı satırı ve değişkenleri kontrol edin."
             }])
 
         # Pylint kontrolü
@@ -375,36 +362,26 @@ def analyze_code():
 
             result = subprocess.run(
                 ["pylint", "--output-format=json", temp_filename],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True
             )
 
             pylint_output = json.loads(result.stdout) if result.stdout else []
 
             for item in pylint_output:
-                error_type = item.get("type", "error")
-                line_no = item.get("line", "?")
-                msg = item.get("message", "")
-                error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
-                explanation = error_info.get("explanation", msg)
-                solution = error_info.get("solution", "")
-
                 errors.append({
-                    "error_type": error_type,
-                    "line": line_no,
-                    "original_message": msg,
-                    "explanation": explanation,
-                    "solution": solution
+                    "error_type": item.get("type", "error"),
+                    "line": item.get("line", "?"),
+                    "original_message": item.get("message", ""),
+                    "explanation": "Python kodu kalite kontrol hatası.",
+                    "solution": "Kodunuzu PEP8 standartlarına göre düzeltin."
                 })
 
             if errors:
                 return jsonify(errors)
             else:
-                no_error_msg = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("NoError", "No errors found in code.")
-                return jsonify({"result": no_error_msg})
+                return jsonify({"result": "Kodda hata bulunamadı."})
 
-        except Exception as e:
-            return jsonify({"error": str(e)})
         finally:
             if temp_filename and os.path.exists(temp_filename):
                 os.remove(temp_filename)
-
