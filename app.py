@@ -9,45 +9,6 @@ import traceback
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
-# ----------------- Java kodunu güvenli çalıştırma -----------------
-def run_java_code(code, timeout_sec=5):
-    import tempfile, os, subprocess
-    temp_dir = tempfile.mkdtemp()
-    java_file_path = os.path.join(temp_dir, "Main.java")
-    class_name = "Main"
-    try:
-        with open(java_file_path, "w", encoding="utf-8") as f:
-            f.write(code)
-
-        # Java derleme
-        compile_proc = subprocess.run(
-            ["javac", java_file_path],
-            capture_output=True, text=True, timeout=timeout_sec
-        )
-
-        if compile_proc.returncode != 0:
-            return {"error": compile_proc.stderr.strip(), "error_type": "CompilationError", "line": "?"}
-
-        # Java çalıştırma
-        run_proc = subprocess.run(
-            ["java", "-cp", temp_dir, class_name],
-            capture_output=True, text=True, timeout=timeout_sec
-        )
-
-        if run_proc.returncode != 0:
-            return {"error": run_proc.stderr.strip(), "error_type": "RuntimeError", "line": "?"}
-        return {"output": run_proc.stdout.strip()}
-
-    except subprocess.TimeoutExpired:
-        return {"error": "Execution timed out.", "error_type": "TimeoutError", "line": "?"}
-    finally:
-        try:
-            # Dosyaları temizle
-            for f in os.listdir(temp_dir):
-                os.remove(os.path.join(temp_dir, f))
-            os.rmdir(temp_dir)
-        except Exception:
-            pass
 
 def run_code_safely(code, timeout_sec=3):
     temp_filename = None
@@ -248,140 +209,90 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
-    lang = data.get("lang", "en").lower()
+    lang = data.get("lang", "en")
 
-    # ----------------- Java kodu -----------------
-    if lang == "java":
-        temp_dir = tempfile.mkdtemp()
-        java_file_path = os.path.join(temp_dir, "Main.java")
-        class_name = "Main"
-        try:
-            with open(java_file_path, "w", encoding="utf-8") as f:
-                f.write(code)
+    # ----------------- Syntax hatalarını kontrol et -----------------
+    syntax_errors = []
+    try:
+        compile(code, "<string>", "exec")
+    except Exception as e:
+        error_type = type(e).__name__
+        line_no = getattr(e, "lineno", "?")
+        msg = str(e)
 
-            # Derleme
-            compile_proc = subprocess.run(
-                ["javac", java_file_path],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+        error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+        explanation = error_info.get("explanation", "No explanation available.")
+        solution = error_info.get("solution", "No solution available.")
 
-            if compile_proc.returncode != 0:
-                errors = []
-                import re
-                for line in compile_proc.stderr.splitlines():
-                    match = re.search(r'(?:(Main\.java):)?(\d+):\s*(.*)', line)
-                    if match:
-                        line_no = int(match.group(2))
-                        msg = match.group(3)
-                        errors.append({
-                            "error_type": "CompilationError",
-                            "line": line_no,
-                            "original_message": msg,
-                            "explanation": "Java kodunda derleme hatası oluştu.",
-                            "solution": "Hata mesajını kontrol edin ve kodu düzeltin."
-                        })
-                if not errors:
-                    errors.append({
-                        "error_type": "CompilationError",
-                        "line": "?",
-                        "original_message": compile_proc.stderr.strip(),
-                        "explanation": "Java kodu derlenemedi.",
-                        "solution": "Derleme hatasını kontrol edin ve kodu düzeltin."
-                    })
-                return jsonify(errors)
+        syntax_errors.append({
+            "error_type": error_type,
+            "line": line_no,
+            "original_message": msg,
+            "explanation": explanation,
+            "solution": solution
+        })
 
-            # Çalıştırma
-            run_proc = subprocess.run(
-                ["java", "-cp", temp_dir, class_name],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+    if syntax_errors:
+        return jsonify(syntax_errors)
 
-            if run_proc.returncode != 0:
-                return jsonify([{
-                    "error_type": "RuntimeError",
-                    "line": "?",
-                    "original_message": run_proc.stderr.strip(),
-                    "explanation": "Java kodu çalıştırılırken hata oluştu.",
-                    "solution": "Kodun mantığını gözden geçirin."
-                }])
+    # ----------------- Runtime (çalışma zamanı) kontrolü -----------------
+    runtime_result = run_code_safely(code, timeout_sec=3)
+    if "error" in runtime_result:
+        err_msg = runtime_result["error"]
+        error_type = runtime_result.get("error_type", "RuntimeError")
 
-            return jsonify({"output": run_proc.stdout.strip()})
+        error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+        explanation = error_info.get("explanation", "No explanation available.")
+        solution = error_info.get("solution", "No solution available.")
 
-        except subprocess.TimeoutExpired:
-            return jsonify([{
-                "error_type": "TimeoutError",
-                "line": "?",
-                "original_message": "Java kodu zaman aşımına uğradı.",
-                "explanation": "Kod çok uzun sürdü.",
-                "solution": "Döngüleri veya uzun işlemleri optimize edin."
-            }])
-        finally:
-            try:
-                for f in os.listdir(temp_dir):
-                    os.remove(os.path.join(temp_dir, f))
-                os.rmdir(temp_dir)
-            except Exception:
-                pass
+        return jsonify([{
+            "error_type": error_type,
+            "line": runtime_result.get("line", "?"),
+            "original_message": err_msg,
+            "explanation": explanation,
+            "solution": solution
+        }])
 
-    # ----------------- Python kodu -----------------
-    else:
-        # Syntax kontrolü
-        try:
-            compile(code, "<string>", "exec")
-        except Exception as e:
-            return jsonify([{
-                "error_type": type(e).__name__,
-                "line": getattr(e, "lineno", "?"),
-                "original_message": str(e),
-                "explanation": "Python kodunda syntax hatası.",
-                "solution": "Hatalı satırı düzeltin."
-            }])
+    # ----------------- Pylint ile çoklu hata kontrolü -----------------
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
+            temp_file.write(code)
+            temp_filename = temp_file.name
 
-        # Runtime kontrolü
-        runtime_result = run_python_code(code)
-        if "error" in runtime_result:
-            return jsonify([{
-                "error_type": runtime_result.get("error_type", "RuntimeError"),
-                "line": runtime_result.get("line", "?"),
-                "original_message": runtime_result.get("error"),
-                "explanation": "Python kodunda çalışma zamanı hatası.",
-                "solution": "Hatalı satırı ve değişkenleri kontrol edin."
-            }])
+        result = subprocess.run(
+            ["pylint", "--output-format=json", temp_filename],
+            capture_output=True, text=True
+        )
 
-        # Pylint kontrolü
+        pylint_output = json.loads(result.stdout) if result.stdout else []
+
         errors = []
-        temp_filename = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
-                temp_file.write(code)
-                temp_filename = temp_file.name
+        for item in pylint_output:
+            error_type = item.get("type", "error")
+            line_no = item.get("line", "?")
+            msg = item.get("message", "")
+            error_info = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get(error_type, {})
+            explanation = error_info.get("explanation", msg)
+            solution = error_info.get("solution", "")
 
-            result = subprocess.run(
-                ["pylint", "--output-format=json", temp_filename],
-                capture_output=True,
-                text=True
-            )
+            errors.append({
+                "error_type": error_type,
+                "line": line_no,
+                "original_message": msg,
+                "explanation": explanation,
+                "solution": solution
+            })
 
-            pylint_output = json.loads(result.stdout) if result.stdout else []
+        os.remove(temp_filename)
 
-            for item in pylint_output:
-                errors.append({
-                    "error_type": item.get("type", "error"),
-                    "line": item.get("line", "?"),
-                    "original_message": item.get("message", ""),
-                    "explanation": "Python kodu kalite kontrol hatası.",
-                    "solution": "Kodunuzu PEP8 standartlarına göre düzeltin."
-                })
+        if errors:
+            return jsonify(errors)
+        else:
+            no_error_msg = ERROR_TRANSLATIONS.get(lang, ERROR_TRANSLATIONS["en"]).get("NoError", "No errors found in code.")
+            return jsonify({"result": no_error_msg})
 
-            if errors:
-                return jsonify(errors)
-            else:
-                return jsonify({"result": "Kodda hata bulunamadı."})
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
-        finally:
-            if temp_filename and os.path.exists(temp_filename):
-                os.remove(temp_filename)
+if __name__ == "__main__":
+    app.run(debug=True)
