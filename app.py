@@ -208,7 +208,6 @@ def home():
 def analyze_code():
     data = request.get_json()
 
-   
     print("GELEN JSON:", data)  # Debug: gelen veriyi terminalde gösterir
 
     if not data or "code" not in data:
@@ -218,13 +217,17 @@ def analyze_code():
     lang = data.get("lang", "en").lower()
 
     # ----------------- Java kodu kontrolü -----------------
-    if lang == "java":
+    prog_lang = data.get("programming_language", "Python").lower()  # Frontend’den gelen gerçek programlama dili
+
+    if prog_lang == "java":
         try:
             # analyze_java ya dict (başarılı çıktı) ya da list (hatalar) döndürecek
             result = analyze_java(code, timeout=5)
             return jsonify(result)
         except Exception as e:
             return jsonify({"error": "Java analizinde iç hata: " + str(e)}), 500
+
+    # ----------------- Python ve diğer işlemler buraya devam eder -----------------
 
     # ----------------- Python kodu kontrolü -----------------
     syntax_errors = []
