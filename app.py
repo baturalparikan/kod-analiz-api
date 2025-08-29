@@ -207,6 +207,10 @@ def home():
 @app.route("/analyze", methods=["POST"])
 def analyze_code():
     data = request.get_json()
+
+   
+    print("GELEN JSON:", data)  # Debug: gelen veriyi terminalde gösterir
+
     if not data or "code" not in data:
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
@@ -264,7 +268,7 @@ def analyze_code():
             "solution": solution
         }])
 
-    # ----------------- Pylint ile çoklu hata kontrolü -----------------
+        # ----------------- Pylint ile çoklu hata kontrolü -----------------
     errors = []
     temp_filename = None
     try:
@@ -306,3 +310,7 @@ def analyze_code():
     finally:
         if temp_filename and os.path.exists(temp_filename):
             os.remove(temp_filename)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
