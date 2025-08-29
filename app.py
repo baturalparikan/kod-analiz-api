@@ -7,6 +7,8 @@ import tempfile
 import sys
 import traceback
 
+from java_runner import analyze_java
+
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -209,9 +211,18 @@ def analyze_code():
         return jsonify({"error": "Kod gönderilmedi"}), 400
 
     code = data["code"]
-    lang = data.get("lang", "en")
+    lang = data.get("lang", "en").lower()
 
-    # ----------------- Syntax hatalarını kontrol et -----------------
+    # ----------------- Java kodu kontrolü -----------------
+    if lang == "java":
+        try:
+            # analyze_java ya dict (başarılı çıktı) ya da list (hatalar) döndürecek
+            result = analyze_java(code, timeout=5)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": "Java analizinde iç hata: " + str(e)}), 500
+
+    # ----------------- Python kodu kontrolü -----------------
     syntax_errors = []
     try:
         compile(code, "<string>", "exec")
@@ -254,6 +265,8 @@ def analyze_code():
         }])
 
     # ----------------- Pylint ile çoklu hata kontrolü -----------------
+    errors = []
+    temp_filename = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode="w", encoding="utf-8") as temp_file:
             temp_file.write(code)
@@ -266,7 +279,6 @@ def analyze_code():
 
         pylint_output = json.loads(result.stdout) if result.stdout else []
 
-        errors = []
         for item in pylint_output:
             error_type = item.get("type", "error")
             line_no = item.get("line", "?")
@@ -283,8 +295,6 @@ def analyze_code():
                 "solution": solution
             })
 
-        os.remove(temp_filename)
-
         if errors:
             return jsonify(errors)
         else:
@@ -293,6 +303,6 @@ def analyze_code():
 
     except Exception as e:
         return jsonify({"error": str(e)})
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    finally:
+        if temp_filename and os.path.exists(temp_filename):
+            os.remove(temp_filename)
