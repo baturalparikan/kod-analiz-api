@@ -1,9 +1,9 @@
 # Python tabanı
 FROM python:3.11-slim
 
-# Sistem güncelleme ve OpenJDK kurulum
+# Sistem güncelleme ve Java (JDK) kurulum
 RUN apt-get update && \
-    apt-get install -y openjdk-17-jdk-headless wget unzip && \
+    apt-get install -y default-jdk wget unzip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # JAVA_HOME ve PATH ayarı
