@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kod Analiz Aracı</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css" />
+  <style>
+    .error-line { background-color: #ffcccc !important; }
+    body {
+      font-family: "Times New Roman", serif;
+      display: flex; justify-content: center; align-items: center;
+      height: 100vh; background-color: #f9f9f9;
+    }
+    .language-switch {
+      position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;
+    }
+    .language-switch img { width: 64px; height: 64px; cursor: pointer; opacity: 0.6; transition: opacity 0.3s; }
+    .language-switch img.active { opacity: 1; transform: scale(1.1); }
+    .logo {
+      font-family: "Times New Roman", serif; font-size: 24px; font-weight: bold;
+      position: absolute; top: 20px; left: 20px; color: #333;
+    }
+    .container {
+      background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 800px;
+    }
+    h2 { text-align: center; margin-bottom: 15px; }
+    #editor { border: 1px solid #ddd; border-radius: 5px; height: 200px; width: 100%; }
+    select, button { margin-top: 10px; padding: 8px 12px; border-radius: 5px; border: 1px solid #ccc; font-family: "Times New Roman", serif; }
+    button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    #result { margin-top: 15px; padding: 12px; border-radius: 5px; font-size: 15px; }
+    .error-box { background-color: #ffe6e6; border: 1px solid #cc0000; color: #660000; }
+    .success-box { background-color: #e6ffe6; border: 1px solid #009900; color: #003300; }
+    .CodeMirror { width: 100%; min-width: 600px; }
+  </style>
+</head>
+<body>
+  <div class="logo">PyInspect</div>
+
+  <div class="language-switch">
+    <img id="pythonBtn" src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="Python" onclick="setLanguage('Python')">
+    <img id="javaBtn" src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/java/java-original.svg" alt="Java" onclick="setLanguage('Java')">
+  </div>
+
+  <div class="container">
+    <h2 id="title">Kod Analiz Aracı</h2>
+    <p id="description" style="text-align:center; color:#555; margin-bottom:15px;">Python kodunuzu aşağıya yapıştırın ve Analiz Et'e tıklayın.</p>
+    <textarea id="editor"></textarea>
+    <br>
+    <label for="lang">Dil Seç:</label>
+    <select id="lang">
+      <option value="tr">Türkçe</option>
+      <option value="en">English</option>
+      <option value="de">Deutsch</option>
+      <option value="ru">Русский</option>
+      <option value="ar">عربي</option>
+      <option value="zh">中国人</option>
+      <option value="es">Español</option>
+    </select>
+    <button id="analyzeBtn" onclick="analyzeCode()">Analiz Et</button>
+    <button id="clearBtn" onclick="clearCode()">Temizle</button>
+    <button id="pasteBtn" onclick="pasteCode()">Yapıştır</button>
+    <div id="result">Sonuç burada görünecek...</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/clike/clike.min.js"></script>
+<script>
+let currentLang = "Python";
+
+const editor = CodeMirror.fromTextArea(document.getElementById("editor"), { 
+  mode: "python", lineNumbers: true, theme: "default" 
+});
+
+function setLanguage(lang) {
+  currentLang = lang;
+  const editorContainer = document.querySelector(".CodeMirror");
+  let langLabel = document.getElementById("selected-lang");
+  if (!langLabel) {
+    langLabel = document.createElement("div");
+    langLabel.id = "selected-lang";
+    langLabel.style.position = "absolute";
+    langLabel.style.top = "10px";
+    langLabel.style.right = "10px";
+    langLabel.style.background = "#007bff";
+    langLabel.style.color = "white";
+    langLabel.style.padding = "2px 8px";
+    langLabel.style.borderRadius = "5px";
+    editorContainer.appendChild(langLabel);
+  }
+  langLabel.textContent = lang;
+
+  document.getElementById("pythonBtn").classList.remove("active");
+  document.getElementById("javaBtn").classList.remove("active");
+  if (lang === "Python") editor.setOption("mode", "python"), document.getElementById("pythonBtn").classList.add("active");
+  if (lang === "Java") editor.setOption("mode", "text/x-java"), document.getElementById("javaBtn").classList.add("active");
+}
+
+function detectLanguage() {
+  const code = editor.getValue().trim();
+  if (code.startsWith("import") || code.includes("def ") || code.includes("print(")) setLanguage("Python");
+  else if (code.includes("public") || code.includes("class") || code.includes("System.out")) setLanguage("Java");
+}
+
+editor.on("change", detectLanguage);
+
+const translations = {
+  en: { 
+    title:"Code Analysis Tool",
+    description:"Paste your code below and click Analyze to find errors.",
+    labelLang:"Language:",
+    analyze:"Analyze",
+    clear:"Clear",
+    paste:"Paste",
+    result_Placeholder:"Result will appear here...",
+    analyzing:"Analyzing...",
+    apiError:"Error: Can't reach API.",
+    noError:"No errors found in code.",
+    errorHeader:"Errors found:",
+    errorLabel:"Error",
+    errorTypeLabel:"Error Type:",
+    explanationLabel:"Explanation:",
+    lineLabel:"Line:",
+    originalMsgLabel:"Original Message:",
+    pasteError:"Clipboard access denied! Your browser may not allow it.",
+    solutionLabel: "Solution"
+  },
+  tr: { 
+    title:"Kod Analiz Aracı",
+    description:"Kodunuzu aşağıya yapıştırın ve Analiz Et'e tıklayın.",
+    labelLang:"Dil Seç:",
+    analyze:"Analiz Et",
+    clear:"Temizle",
+    paste:"Yapıştır",
+    result_Placeholder:"Sonuç burada görünecek...",
+    analyzing:"Analiz ediliyor...",
+    apiError:"Hata: API'ye ulaşılamıyor.",
+    noError:"Kodda hata bulunamadı.",
+    errorHeader:"Bulunan Hatalar:",
+    errorLabel:"Hata",
+    errorTypeLabel:"Hata Türü:",
+    explanationLabel:"Açıklama:",
+    lineLabel:"Satır:",
+    originalMsgLabel:"Orijinal Mesaj:",
+    pasteError:"Panoya erişim reddedildi! Tarayıcı izin vermiyor olabilir.",
+    solutionLabel: "Çözüm"
+  },
+  de: { 
+    title:"Code Analyse Werkzeug",
+    description:"Fügen Sie Ihren Code unten ein und klicken Sie auf Analysieren.",
+    labelLang:"Sprache:",
+    analyze:"Analysieren",
+    clear:"Löschen",
+    paste:"Einfügen",
+    result_Placeholder:"Ergebnis erscheint hier...",
+    analyzing:"Analysiere...",
+    apiError:"Fehler: API nicht erreichbar.",
+    noError:"Keine Fehler im Code gefunden.",
+    errorHeader:"Gefundene Fehler:",
+    errorLabel:"Fehler",
+    errorTypeLabel:"Fehlertyp:",
+    explanationLabel:"Erklärung:",
+    lineLabel:"Zeile:",
+    originalMsgLabel:"Originalnachricht:",
+    pasteError:"Zugriff auf die Zwischenablage verweigert! Der Browser erlaubt dies möglicherweise nicht.",
+    solutionLabel: "Lösung"
+  },
+  ru: { 
+    title:"Инструмент анализа кода",
+    description:"Вставьте ваш код ниже и нажмите Анализировать.",
+    labelLang:"Язык:",
+    analyze:"Анализировать",
+    clear:"Очистить",
+    paste:"Вставить",
+    result_Placeholder:"Результат появится здесь...",
+    analyzing:"Анализ...",
+    apiError:"Ошибка: API недоступно.",
+    noError:"Ошибок не найдено.",
+    errorHeader:"Найденные ошибки:",
+    errorLabel:"Ошибка",
+    errorTypeLabel:"Тип ошибки:",
+    explanationLabel:"Объяснение:",
+    lineLabel:"Строка:",
+    originalMsgLabel:"Оригинальное сообщение:",
+    pasteError:"Доступ к буферу обмена запрещен! Браузер может не разрешать это.",
+    solutionLabel: "Решение"
+  },
+  ar: { 
+    title:"أداة تحليل الكود",
+    description:"الصق الكود الخاص بك هنا",
+    labelLang:"اللغة:",
+    analyze:"تحليل",
+    clear:"مسح",
+    paste:"لصق",
+    result_Placeholder:"ستظهر النتيجة هنا...",
+    analyzing:"جارٍ التحليل...",
+    apiError:"خطأ: لا يمكن الوصول إلى API.",
+    noError:"لم يتم العثور على أي أخطاء في الكود.",
+    errorHeader:"الأخطاء الموجودة:",
+    errorLabel:"خطأ",
+    errorTypeLabel:"نوع الخطأ:",
+    explanationLabel:"تفسير:",
+    lineLabel:"السطر:",
+    originalMsgLabel:"الرسالة الأصلية:",
+    pasteError:"تم رفض الوصول إلى الحافظة! قد لا يسمح المتصفح بذلك.",
+    solutionLabel: "الحل"
+  },
+  zh: { 
+    title:"代码分析工具",
+    description:"将您的代码粘贴到下面，然后点击分析以查找错误。",
+    labelLang:"语言:",
+    analyze:"分析",
+    clear:"清除",
+    paste:"粘贴",
+    result_Placeholder:"结果将在此显示...",
+    analyzing:"分析中...",
+    apiError:"错误：无法访问API。",
+    noError:"代码中未发现错误。",
+    errorHeader:"发现的错误:",
+    errorLabel:"错误",
+    errorTypeLabel:"错误类型:",
+    explanationLabel:"解释:",
+    lineLabel:"行:",
+    originalMsgLabel:"原始消息:",
+    pasteError:"剪贴板访问被拒绝！浏览器可能不允许。",
+    solutionLabel: "解决方案"
+  },
+  es: { 
+    title:"Herramienta de Análisis de Código",
+    description:"Pegue su código a continuación y haga clic en Analizar para encontrar errores.",
+    labelLang:"Idioma:",
+    analyze:"Analizar",
+    clear:"Borrar",
+    paste:"Pegar",
+    result_Placeholder:"El resultado aparecerá aquí...",
+    analyzing:"Analizando...",
+    apiError:"Error: No se puede acceder a la API.",
+    noError:"No se encontraron errores en el código.",
+    errorHeader:"Errores encontrados:",
+    errorLabel:"Error",
+    errorTypeLabel:"Tipo de Error:",
+    explanationLabel:"Explicación:",
+    lineLabel:"Línea:",
+    originalMsgLabel:"Mensaje Original:",
+    pasteError:"Acceso al portapapeles denegado! Su navegador puede no permitirlo.",
+    solutionLabel: "Solución"
+  }
+};
+
+const langSelect = document.getElementById("lang");
+const titleEl = document.getElementById("title");
+const descriptionEl = document.getElementById("description");
+const labelEl = document.querySelector('label[for="lang"]');
+const analyzeBtnEl = document.getElementById("analyzeBtn");
+const clearBtnEl = document.getElementById("clearBtn");
+const pasteBtnEl = document.getElementById("pasteBtn");
+const resultDivEl = document.getElementById("result");
+
+function applyLanguage(lang) {
+  const t = translations[lang] || translations["en"];
+  titleEl.textContent = t.title;
+  descriptionEl.textContent = t.description;
+  labelEl.textContent = t.labelLang;
+  analyzeBtnEl.textContent = t.analyze;
+  clearBtnEl.textContent = t.clear;
+  pasteBtnEl.textContent = t.paste;
+  resultDivEl.textContent = t.result_Placeholder;
+  document.documentElement.lang = lang;
+  langSelect.value = lang;
+}
+
+langSelect.addEventListener("change", (e) => applyLanguage(e.target.value));
+
+const DEFAULT_LANG = "en";
+
+window.onload = function() {
+  applyLanguage(DEFAULT_LANG);
+  langSelect.value = DEFAULT_LANG;
+  setLanguage(currentLang);
+};
+</script>
+<script>
+async function analyzeCode() {
+  const code = editor.getValue();
+  const lang = langSelect.value || DEFAULT_LANG;
+  const t = translations[lang];
+  const resultDiv = resultDivEl;
+  resultDiv.textContent = t.analyzing;
+  resultDiv.className = "";
+  editor.getAllMarks().forEach(mark => mark.clear());
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code: code,
+        lang: lang,
+        programming_language: currentLang === "Java" ? "java" : "python"
+      })
+    });
+    const data = await response.json();
+
+    // ---------------- Java sonucu varsa ----------------
+    if (data.java_result) {
+      resultDiv.className = "success-box";
+      let javaHtml = `<b>Java Analiz Sonucu:</b><br>`;
+      const jr = data.java_result;
+
+      if (jr.compile_output) javaHtml += `<b>Derleme Çıktısı:</b><pre>${jr.compile_output}</pre>`;
+      if (jr.stdout) javaHtml += `<b>Çıktı:</b><pre>${jr.stdout}</pre>`;
+      if (jr.stderr) javaHtml += `<b>Hata:</b><pre>${jr.stderr}</pre>`;
+      if (jr.status) javaHtml += `<b>Status:</b> ${jr.status.description}<br>`;
+
+      resultDiv.innerHTML = javaHtml;
+      return;
+    }
+
+    // ---------------- Python hataları ----------------
+    if (Array.isArray(data) && data.length > 0 && data[0].error_type) {
+      resultDiv.className = "error-box";
+      let html = `<b>${t.errorHeader}</b><br><br>`;
+      data.forEach((err,i)=>{
+        const explanation=typeof err.explanation==="object"?JSON.stringify(err.explanation):err.explanation;
+        const solution=typeof err.solution==="object"?JSON.stringify(err.solution):err.solution;
+        html+=`<b>${t.errorLabel} ${i+1}:</b><br>${t.errorTypeLabel} ${err.error_type}<br>${t.explanationLabel} ${explanation}<br>${t.lineLabel} ${err.line}<br>${t.originalMsgLabel} <code>${err.original_message}</code><br><b>${t.solutionLabel}:</b> ${solution}<br><br>`;
+        const lineNumber=parseInt(err.line,10)-1;
+        if(!isNaN(lineNumber)&&lineNumber>=0)
+          editor.markText({line:lineNumber,ch:0},{line:lineNumber,ch:editor.getLine(lineNumber).length},{className:"error-line"});
+      });
+      resultDiv.innerHTML=html;
+    } else if(data.error_type) {
+      resultDiv.className = "error-box";
+      resultDiv.innerHTML=`${t.errorTypeLabel} ${data.error_type}<br>${t.explanationLabel} ${data.explanation}<br>${t.lineLabel} ${data.line}<br>${t.originalMsgLabel} <code>${data.original_message}</code>`;
+    } else {
+      resultDiv.className = "success-box";
+      resultDiv.innerHTML=`<b>${t.noError}</b>`;
+    }
+
+  } catch(error) {
+    resultDiv.className = "error-box";
+    resultDiv.textContent=t.apiError;
+  }
+}
+
+function clearCode() {
+  editor.setValue("");
+  const lang = langSelect.value || DEFAULT_LANG;
+  resultDivEl.textContent = translations[lang].result_Placeholder;
+  resultDivEl.className="";
+  editor.getAllMarks().forEach(mark=>mark.clear());
+}
+
+async function pasteCode() {
+  try {
+    const text = await navigator.clipboard.readText();
+    editor.setValue(text);
+    detectLanguage();
+  } catch(err) {
+    const lang = langSelect.value || "en";
+    const t = translations[lang];
+    alert(t.pasteError || "Clipboard access denied!");
+    console.error("Clipboard error:", err);
+  }
+}
+</script>
