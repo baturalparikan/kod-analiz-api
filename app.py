@@ -317,5 +317,5 @@ def analyze_code():
 
 if __name__ == "__main__":
     import os
-    port = int(os.environ.get("PORT", 10000))  # Render genelde 10000 kullanır
-    app.run(host="0.0.0.0", port=port, debug=False)
+    port = int(os.environ.get("PORT", 5000))  # Render'ın verdiği PORT değerini al
+    app.run(host="0.0.0.0", port=port)
