@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Render genelde 10000 portunu kullanır
-EXPOSE 10000
+EXPOSE $PORT
 
 # Uygulamayı başlat
 CMD ["python", "app.py"]
