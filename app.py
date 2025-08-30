@@ -6,8 +6,9 @@ import os
 import tempfile
 import sys
 import traceback
+import requests
+from judge0_client import run_code_on_judge0
 
-from java_runner import analyze_java
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -203,7 +204,6 @@ ERROR_TRANSLATIONS = {
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"message": "Kod Analiz API çalışıyor!"})
-
 @app.route("/analyze", methods=["POST"])
 def analyze_code():
     data = request.get_json()
@@ -216,18 +216,25 @@ def analyze_code():
     code = data["code"]
     lang = data.get("lang", "en").lower()
 
-    # ----------------- Java kodu kontrolü -----------------
+    # ----------------- Java kodu kontrolü (Judge0 ile güvenli çalıştırma) -----------------
     prog_lang = data.get("programming_language", "Python").lower()  # Frontend’den gelen gerçek programlama dili
 
     if prog_lang == "java":
         try:
-            # analyze_java ya dict (başarılı çıktı) ya da list (hatalar) döndürecek
-            result = analyze_java(code, timeout=5)
-            return jsonify(result)
+            # Judge0'a gönder (senkron bekleyeceğiz)
+            judge0_resp = run_code_on_judge0(code, language_substr="java", wait=True, cpu_time_limit=2.0)
+
+            # Eğer hata iletisi geldiyse doğrudan döndür
+            if isinstance(judge0_resp, dict) and judge0_resp.get("error"):
+                return jsonify({"error": judge0_resp["error"]}), 500
+
+            # Judge0'dan gelen ham cevabı frontend'e gönderiyoruz.
+            # Örnek önemli alanlar: compile_output, stdout, stderr, status
+            return jsonify({"java_result": judge0_resp})
+        except requests.exceptions.RequestException as re:
+            return jsonify({"error": "Judge0 ile iletişim hatası: " + str(re)}), 502
         except Exception as e:
             return jsonify({"error": "Java analizinde iç hata: " + str(e)}), 500
-
-    # ----------------- Python ve diğer işlemler buraya devam eder -----------------
 
     # ----------------- Python kodu kontrolü -----------------
     syntax_errors = []
